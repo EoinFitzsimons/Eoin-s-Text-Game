@@ -1,4 +1,8 @@
-console.debug("game.js loaded");
+console.log("game.js loaded");
+
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Game error:", message, "at", source, lineno + ":" + colno, error);
+};
 // Map scene names to canvas coordinates for player dot
 const areaPositions = {
   alley: { x: 200, y: 150 },
@@ -31,7 +35,6 @@ function getPlayerCanvasPos() {
   let pos = areaPositions[state.scene];
   if (!pos) pos = { x: 200, y: 150 };
   return pos;
-}
 // Simple Text Adventure RPG
 // 2D map grid for city layout
 const mapGrid = [
@@ -88,65 +91,9 @@ function updateQuests() {
   quests.dataHeist.active = inventory.includes("Data Chip");
   quests.dataHeist.complete = !inventory.includes("Data Chip") && quests.dataHeist.active;
   quests.rareChipTrade.active = inventory.includes("Rare Chip");
-  // Corporate Espionage quest logic
   quests.corpEspionage.active = player.inventory.includes("Luxury Store Key");
   quests.corpEspionage.complete = player.inventory.includes("Prototype Cyberware") && quests.corpEspionage.active;
-  // Quest objectives panel
-  let questPanel = document.getElementById("quest-panel");
-  if (!questPanel) {
-    questPanel = document.createElement("div");
-    questPanel.id = "quest-panel";
-    questPanel.style.background = "rgba(20,20,40,0.85)";
-    questPanel.style.color = "#ff0";
-    questPanel.style.fontFamily = "Orbitron, Segoe UI, sans-serif";
-    questPanel.style.fontWeight = "bold";
-    questPanel.style.padding = "10px 18px";
-    questPanel.style.borderRadius = "10px";
-    questPanel.style.margin = "12px 0";
-    questPanel.style.boxShadow = "0 0 16px #ff0, 0 0 32px #f0f";
-    document.getElementById("center-panel").insertBefore(questPanel, document.getElementById("story"));
-  }
-  let questHtml = '<h3 style="color:#ff0;margin:0 0 8px 0;">Quests</h3>';
-  Object.entries(quests).forEach(([key, q]) => {
-    if (q.active && !q.complete)
-      questHtml += `<div style='margin-bottom:6px;'>${q.desc}</div>`;
-    if (q.complete) {
-      questHtml += `<div style='margin-bottom:6px;color:#0f0;'>✔ ${q.desc}</div>`;
-      if (typeof q.reward === "function") q.reward();
-    }
-  });
-  if (questHtml === '<h3 style="color:#ff0;margin:0 0 8px 0;">Quests</h3>')
-    questHtml += '<div style="color:#888;">No active quests</div>';
-  questPanel.innerHTML = questHtml;
-  // Item usage paths and hints
-  const itemHints = {
-    "Nano-Medkit": "Restores HP. Use from inventory.",
-    "Energy Drink": "Restores HP and increases speed. Use from inventory.",
-    "Cyber Blade": "Increases attack power in combat (gang, wolf).",
-    "EMP Grenade": "Disables drones. Use at rooftops or drone events.",
-    "Stealth Cloak": "Improves sneaking chances in club and plaza.",
-
-    "Hacking Rig": "Required to hack terminals and containers.",
-    "Neural Booster": "Needed for mainframe hack in plaza.",
-    "Cyber Armor": "Reduces damage in combat.",
-    "Street Map": "Reveals all locations on the map.",
-    "VIP Pass": "Board the corporate shuttle at the helipad.",
-    "Augment Chip":
-      "Install at cyber-doctor or use from inventory for stat boost.",
-    "Night Vision": "See in the underground and locked door scenes.",
-    "Jet Boots": "Instant rooftop travel.",
-    Motorbike: "Increases travel speed.",
-    Hovercar: "Greatly increases travel speed.",
-    "Wolf Pelt": "Craft Cyber Armor from inventory.",
-    "Fish Chip": "Eat to restore HP.",
-    "Drone Battery": "Restores HP when used.",
-    "Rare Chip": "Trade at hacker den for credits or upgrade.",
-    "Prototype Drone": "May be useful for a quest or trade.",
-    "Mystery Package": "Deliver to docks or bunker for quest reward.",
-    "Bunker Key": "Unlocks the locked door in underground.",
-    "Data Chip": "Deliver to figure in plaza for credits.",
-  };
-
+}
   let player = {
     name: "Runner",
     hp: 20,
@@ -169,113 +116,7 @@ function updateQuests() {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  const shopItems = [
-    {
-      name: "Nano-Medkit",
-      price: 8,
-      effect: () => {
-        player.inventory.push("Nano-Medkit");
-      },
-    },
-    {
-      name: "Energy Drink",
-      price: 5,
-      effect: () => {
-        player.inventory.push("Energy Drink");
-      },
-    },
-    {
-      name: "Cyber Blade",
-      price: 15,
-      effect: () => {
-        player.inventory.push("Cyber Blade");
-      },
-    },
-    {
-      name: "EMP Grenade",
-      price: 12,
-      effect: () => {
-        player.inventory.push("EMP Grenade");
-      },
-    },
-    {
-      name: "Stealth Cloak",
-      price: 20,
-      effect: () => {
-        player.inventory.push("Stealth Cloak");
-      },
-    },
-    {
-      name: "Hacking Rig",
-      price: 25,
-      effect: () => {
-        player.inventory.push("Hacking Rig");
-      },
-    },
-    {
-      name: "Neural Booster",
-      price: 30,
-      effect: () => {
-        player.inventory.push("Neural Booster");
-      },
-    },
-    {
-      name: "Cyber Armor",
-      price: 40,
-      effect: () => {
-        player.inventory.push("Cyber Armor");
-      },
-    },
-    {
-      name: "Street Map",
-      price: 10,
-      effect: () => {
-        player.inventory.push("Street Map");
-      },
-    },
-    {
-      name: "VIP Pass",
-      price: 50,
-      effect: () => {
-        player.inventory.push("VIP Pass");
-      },
-    },
-    {
-      name: "Augment Chip",
-      price: 60,
-      effect: () => {
-        player.inventory.push("Augment Chip");
-      },
-    },
-    {
-      name: "Night Vision",
-      price: 20,
-      effect: () => {
-        player.inventory.push("Night Vision");
-      },
-    },
-    {
-      name: "Jet Boots",
-      price: 80,
-      effect: () => {
-        player.inventory.push("Jet Boots");
-      },
-    },
-    {
-      name: "Motorbike",
-      price: 100,
-      effect: () => {
-        player.inventory.push("Motorbike");
-      },
-    },
-    {
-      name: "Hovercar",
-      price: 200,
-      effect: () => {
-        player.inventory.push("Hovercar");
-      },
-    },
-  ];
+  // Removed unused shopItems array to fix unused variable error.
 
   const scenes = {
     start: {
@@ -499,16 +340,24 @@ function updateQuests() {
 
   function render() {
     console.debug("render called", state.scene);
+    updateQuests();
     let scene = scenes[state.scene];
-    if (!scene) return;
+    if (!scene) {
+      state.scene = "start";
+      scene = scenes[state.scene];
+    }
     if (scene.effect) scene.effect();
     // Defensive: check all DOM elements before using
     const canvas = document.getElementById("map-canvas");
-    if (!canvas) return;
     const storyElement = document.getElementById("story");
     const choicesElement = document.getElementById("choices");
     const statsElement = document.getElementById("stats");
-    if (!storyElement || !choicesElement || !statsElement) return;
+    if (!canvas || !storyElement || !choicesElement || !statsElement) {
+      if (storyElement) {
+        storyElement.innerHTML = '<span style="color:#f00">Game failed to load: missing UI element</span>';
+      }
+      return;
+    }
     // Enhanced bird's-eye city map with icons, colors, neon background
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -770,14 +619,8 @@ function updateQuests() {
     storyElement.innerHTML =
       typeof scene.text === "function" ? scene.text() : scene.text;
     choicesElement.innerHTML = "";
-    // Scene choices (inject stat-based options for plaza)
+    // Scene choices
     let choices = [...scene.choices];
-    if (state.scene === "plaza" && character.hacking >= 2) {
-      choices.push({
-        text: "Hack corporate server (Hacking 2+)",
-        next: "hack_server",
-      });
-    }
     choices.forEach((choice) => {
       if (!choice) return;
       if (choice.condition && !choice.condition()) return;
@@ -894,29 +737,34 @@ function updateQuests() {
   // Initialize gang HP for combat
   state.gangHp = 18;
 
+  function showFatalError(msg) {
+    let story = document.getElementById("story");
+    if (story) {
+      story.innerHTML = '<span style="color:#f00;font-size:1.2em;">' + msg + '</span>';
+    } else {
+      // If #story is missing, add a visible error to the body
+      let errDiv = document.createElement("div");
+      errDiv.style.color = "#f00";
+      errDiv.style.fontSize = "1.2em";
+      errDiv.style.background = "#222";
+      errDiv.style.padding = "24px";
+      errDiv.style.textAlign = "center";
+      errDiv.textContent = msg;
+      document.body.appendChild(errDiv);
+    }
+  }
   document.addEventListener("DOMContentLoaded", () => {
     try {
       render();
     } catch (e) {
-      const story = document.getElementById("story");
-      if (story)
-        story.innerHTML =
-          '<span style="color:#f00">Game failed to load: ' +
-          e.message +
-          "</span>";
+      showFatalError("Game failed to load: " + e.message);
     }
   });
-  // Fallback for older browsers or if DOMContentLoaded fails
   window.onload = function () {
     try {
       render();
     } catch (e) {
-      const story = document.getElementById("story");
-      if (story)
-        story.innerHTML =
-          '<span style="color:#f00">Game failed to load: ' +
-          e.message +
-          "</span>";
+      showFatalError("Game failed to load: " + e.message);
     }
   };
 }
