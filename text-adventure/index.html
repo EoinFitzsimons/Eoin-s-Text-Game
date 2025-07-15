@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Adventure RPG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="game-title">Text Adventure RPG</h1>
+        <div id="main-flex">
+            <div id="left-panel">
+                <canvas id="map-canvas" width="400" height="300"></canvas>
+                <div id="character-visual"></div>
+                <div id="customise-panel" style="display:none;"></div>
+            </div>
+            <div id="center-panel">
+                <div id="story"><span style="color:#0ff">Loading game...</span></div>
+                <div id="choices"></div>
+                <div id="stats"></div>
+            </div>
+            <div id="right-panel">
+                <h2>Inventory</h2>
+                <div id="inventory-visual"></div>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
