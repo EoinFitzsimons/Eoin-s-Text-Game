@@ -116,12 +116,12 @@ for (let i = 1; i <= 120; i++) {
   const stat = statTypes[i % statTypes.length];
   itemDefs[`Item${i}`] = {
     name: `Item${i}`,
-    effect: function(player) {
+    effect: function (player) {
       player[stat] = (player[stat] || 0) + ((i % 7) + 1);
     },
     appearance: `item${i}_sprite.png`,
     description: `A cyberpunk item that boosts your ${stat}.`,
-    unlocks: i % 10 === 0 ? `task${i}` : null
+    unlocks: i % 10 === 0 ? `task${i}` : null,
   };
 }
 
@@ -185,8 +185,8 @@ let quests = {
     desc: "Infiltrate the luxury store and steal the prototype cyberware.",
     reward: () => {
       player.inventory.push("Prototype Cyberware");
-    }
-  }
+    },
+  },
 };
 
 // Generate scenes for all main and sub locations
@@ -224,7 +224,16 @@ mainLocations.forEach((main) => {
             const itemName = `Item${idx}`;
             if (!player.inventory.includes(itemName) && itemDefs[itemName]) {
               player.inventory.push(itemName);
-              if (itemDefs[itemName].effect) itemDefs[itemName].effect(player);
+              if (
+                itemDefs[itemName] &&
+                typeof itemDefs[itemName].effect === "function"
+              ) {
+                try {
+                  itemDefs[itemName].effect(player);
+                } catch (e) {
+                  console.error("Error applying item effect:", itemName, e);
+                }
+              }
             }
             render();
           },
@@ -240,11 +249,25 @@ function render() {
   updateQuests();
   let scene = scenes[state.scene];
   if (!scene) {
-    console.error(`[RENDER] Invalid scene: ${state.scene}, reverting to start`);
-    state.scene = "start";
-    scene = scenes[state.scene];
+    console.error(`[RENDER] Invalid scene: ${state.scene}, reverting to fallback`);
+    // Fallback scene definition
+    scene = {
+      text: `You wander into an undefined part of the city. It's eerily quiet.`,
+      choices: [
+        { text: "Return to alley", next: "alley" },
+        { text: "Check inventory", action: () => render() }
+      ]
+    };
+    // Optionally reset to a known scene
+    // state.scene = "alley";
   }
-  if (scene.effect) scene.effect();
+  if (scene && typeof scene.effect === 'function') {
+    try {
+      scene.effect();
+    } catch (e) {
+      console.error('Error in scene.effect:', e);
+    }
+  }
   // Reset player animation position if scene changed
   let animPos = cityMap[state.scene];
   if (animPos) {
@@ -271,7 +294,7 @@ function render() {
     console.debug(`[FACTION] ${f}: ${val}`);
   });
   // Choices
-  if (scene.choices && scene.choices.length) {
+  if (scene && Array.isArray(scene.choices) && scene.choices.length) {
     console.debug(
       `[CHOICES] Available: ${scene.choices.map((c) => c.text).join(", ")}`
     );
