@@ -10,49 +10,6 @@ window.onerror = function (message, source, lineno, colno, error) {
     error
   );
 };
-// Map scene names to canvas coordinates for player dot
-// Legacy areaPositions for reference (not used in main logic)
-const areaPositions = {
-  alley: { x: 200, y: 150 },
-  market: { x: 80, y: 70 },
-  club: { x: 320, y: 70 },
-  plaza: { x: 80, y: 230 },
-  docks: { x: 320, y: 230 },
-  underground: { x: 40, y: 280 },
-  rooftops: { x: 360, y: 40 },
-  shop: { x: 200, y: 70 },
-  cybercafe: { x: 200, y: 100 },
-  performer: { x: 200, y: 130 },
-  luxury_store: { x: 320, y: 100 },
-  food_stall: { x: 80, y: 100 },
-  boat_captain: { x: 360, y: 280 },
-  outskirts: { x: 360, y: 150 },
-  bunker: { x: 360, y: 180 },
-  cyber_wolf: { x: 360, y: 200 },
-  fisherman: { x: 320, y: 280 },
-  dealer: { x: 80, y: 280 },
-  container: { x: 120, y: 280 },
-  mystery_box: { x: 160, y: 280 },
-  terminal: { x: 120, y: 230 },
-  figure: { x: 160, y: 230 },
-};
-
-// Update getPlayerCanvasPos to use areaPositions
-function getPlayerCanvasPos() {
-  console.debug("getPlayerCanvasPos called", state.scene);
-  let pos = cityMap[state.scene];
-  if (!pos) pos = { x: 200, y: 150 };
-  return pos;
-}
-// Simple Text Adventure RPG
-// 2D map grid for city layout
-const mapGrid = [
-  ["alley", "market", "club", "plaza", "docks"],
-  ["underground", "black_market", "hacker_den", "locked_door", "rooftops"],
-  ["food_stall", "cybercafe", "shop", "performer", "luxury_store"],
-  ["boat_captain", "outskirts", "bunker", "cyber_wolf", "fisherman"],
-  ["dealer", "container", "mystery_box", "terminal", "figure"],
-];
 
 // Faction reputation system
 let player = {
@@ -64,8 +21,22 @@ let player = {
   speed: 1,
   x: 2,
   y: 2,
+  bodyParts: {
+    head: { hp: 5, maxHp: 5, armor: 0 },
+    torso: { hp: 8, maxHp: 8, armor: 0 },
+    leftArm: { hp: 3, maxHp: 3, armor: 0 },
+    rightArm: { hp: 3, maxHp: 3, armor: 0 },
+    leftLeg: { hp: 3, maxHp: 3, armor: 0 },
+    rightLeg: { hp: 3, maxHp: 3, armor: 0 }
+  },
+  stats: {
+    strength: 1,
+    hacking: 1,
+    stealth: 1,
+    reputation: 0
+  }
 };
-let state = { scene: "start" };
+let state = { scene: "alley" };
 // Define city locations, types, and coordinates at top level
 // 12 main locations, each with 5 sub-locations
 const mainLocations = [
@@ -83,47 +54,233 @@ const mainLocations = [
   "terminal",
 ];
 const cityMap = {};
-mainLocations.forEach((main, i) => {
-  cityMap[main] = {
-    x: 80 + (i % 4) * 100,
-    y: 80 + Math.floor(i / 4) * 100,
-    type: "main",
-  };
+// Hand-crafted, winding city layout for more organic feel
+const cityLayout = {
+  alley: { x: 60, y: 220 },
+  market: { x: 120, y: 120 },
+  club: { x: 320, y: 80 },
+  plaza: { x: 220, y: 180 },
+  docks: { x: 340, y: 260 },
+  rooftops: { x: 260, y: 40 },
+  underground: { x: 80, y: 270 },
+  cybercafe: { x: 180, y: 110 },
+  luxury_store: { x: 370, y: 130 },
+  outskirts: { x: 390, y: 200 },
+  bunker: { x: 60, y: 60 },
+  terminal: { x: 200, y: 260 }
+};
+Object.entries(cityLayout).forEach(([main, pos]) => {
+  cityMap[main] = { ...pos, type: "main" };
+  // Sub-locations spiral or arc around their main
   for (let j = 1; j <= 5; j++) {
+    const angle = (Math.PI * 2 * j) / 5 + (main.charCodeAt(0) % 10) * 0.2;
+    const radius = 28 + 12 * (j % 2);
     const sub = `${main}_sub${j}`;
     cityMap[sub] = {
-      x: cityMap[main].x + j * 12,
-      y: cityMap[main].y + j * 12,
+      x: pos.x + Math.cos(angle) * radius,
+      y: pos.y + Math.sin(angle) * radius,
       type: "sub",
-      parent: main,
+      parent: main
     };
   }
 });
 
-// 120 items with stat/appearance/task effects
+// 120 unique cyberpunk items with names, descriptions, and effects
 const itemDefs = {};
-const statTypes = [
-  "hp",
-  "maxHp",
-  "speed",
-  "credits",
-  "strength",
-  "hacking",
-  "stealth",
-  "reputation",
+const uniqueItems = [
+  { name: "Neon Blade", description: "A glowing monomolecular blade. Boosts strength.", effect: p => p.strength = (p.strength||0)+2 },
+  { name: "Holo Cloak", description: "A shimmering cloak that bends light. Boosts stealth.", effect: p => p.stealth = (p.stealth||0)+2 },
+  { name: "Data Spike", description: "A hacking tool for breaking into terminals. Boosts hacking.", effect: p => p.hacking = (p.hacking||0)+2 },
+  { name: "Stim Patch", description: "A quick-heal patch. Restores 5 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+5) },
+  { name: "Credit Chit", description: "A digital wallet loaded with credits.", effect: p => p.credits = (p.credits||0)+20 },
+  { name: "EMP Grenade", description: "Disables electronics in a small radius. Useful for certain quests.", effect: p => {} },
+  { name: "Rare Chip", description: "A mysterious microchip. Needed for a quest.", effect: p => {} },
+  { name: "Prototype Cyberware", description: "Experimental cybernetic upgrade. Boosts max HP.", effect: p => p.maxHp = (p.maxHp||0)+3 },
+  { name: "Nano Medkit", description: "Advanced medical kit. Fully restores HP.", effect: p => p.hp = p.maxHp },
+  { name: "Street Map", description: "A digital map of the city. Reveals hidden locations.", effect: p => {} },
+  { name: "Plasma Pistol", description: "A compact energy weapon. Boosts strength.", effect: p => p.strength = (p.strength||0)+1 },
+  { name: "Camo Visor", description: "Augmented reality visor. Boosts stealth.", effect: p => p.stealth = (p.stealth||0)+1 },
+  { name: "Encrypted Drive", description: "Contains valuable data. Needed for a quest.", effect: p => {} },
+  { name: "Hacker's Deck", description: "Portable hacking rig. Boosts hacking.", effect: p => p.hacking = (p.hacking||0)+1 },
+  { name: "Synth Ale", description: "Popular club drink. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "VIP Pass", description: "Grants access to exclusive areas.", effect: p => {} },
+  { name: "Drone Parts", description: "Components for building a drone. Needed for crafting.", effect: p => {} },
+  { name: "AI Core", description: "Artificial intelligence module. Needed for a quest.", effect: p => {} },
+  { name: "Security Badge", description: "Lets you bypass some security doors.", effect: p => {} },
+  { name: "Energy Cell", description: "Powers high-tech gear. Needed for some items.", effect: p => {} },
+  { name: "Optic Enhancer", description: "Cybernetic eye upgrade. Boosts accuracy.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Reflex Booster", description: "Neural implant for faster reactions. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Memory Crystal", description: "Stores encrypted memories. Needed for a quest.", effect: p => {} },
+  { name: "Street Doc's Kit", description: "Medical supplies from a street doctor. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Smartgun Chip", description: "Chip for smart weapons. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Cortex Jack", description: "Neural interface for hacking. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Stealth Boots", description: "Silent cybernetic boots. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Reputation Badge", description: "Symbol of street cred. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+2 },
+  { name: "Encrypted Keycard", description: "Opens secure doors. Needed for a quest.", effect: p => {} },
+  { name: "Nanofiber Vest", description: "Lightweight armor vest. Adds 1 armor to torso.", effect: p => p.bodyParts.torso.armor += 1 },
+  { name: "Shock Gloves", description: "Electrified gloves. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Cranial Shield", description: "Protective head implant. Adds 1 armor to head.", effect: p => p.bodyParts.head.armor += 1 },
+  { name: "Leg Servos", description: "Hydraulic leg upgrades. Boosts speed.", effect: p => p.speed = (p.speed||1)+1 },
+  { name: "Wrist Laser", description: "Hidden laser weapon. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Hacker's Patch", description: "Software patch for hacking. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Stealth Field", description: "Personal stealth generator. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+2 },
+  { name: "Reputation Chip", description: "Implant that broadcasts your rep. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Combat Stims", description: "Drugs that boost combat ability. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Encrypted Tablet", description: "Tablet with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Nano Armor", description: "Self-repairing armor. Adds 1 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=1); } },
+  { name: "Cybernetic Arm", description: "Robotic arm. Adds 1 armor to right arm.", effect: p => p.bodyParts.rightArm.armor += 1 },
+  { name: "Cybernetic Leg", description: "Robotic leg. Adds 1 armor to right leg.", effect: p => p.bodyParts.rightLeg.armor += 1 },
+  { name: "EMP Mine", description: "Explosive for disabling electronics. Needed for a quest.", effect: p => {} },
+  { name: "Street Scanner", description: "Scans for hidden threats. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Neural Uplink", description: "Direct brain-to-net connection. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+2 },
+  { name: "Muscle Weave", description: "Synthetic muscle fibers. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+2 },
+  { name: "Reputation Medal", description: "Award for heroic deeds. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+3 },
+  { name: "Nano Injector", description: "Injects healing nanobots. Restores 6 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+6) },
+  { name: "Encrypted Phone", description: "Secure comms device. Needed for a quest.", effect: p => {} },
+  { name: "Smart Contacts", description: "Augmented reality contacts. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Stealth Suit", description: "Full-body stealth suit. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+2 },
+  { name: "Reputation Ring", description: "Ring that marks you as a fixer. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Combat Drugs", description: "Illicit drugs for combat. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Encrypted Badge", description: "Badge for secret society. Needed for a quest.", effect: p => {} },
+  { name: "Nano Shield", description: "Personal energy shield. Adds 2 armor to torso.", effect: p => p.bodyParts.torso.armor += 2 },
+  { name: "Cybernetic Spine", description: "Reinforced spine. Adds 1 armor to torso.", effect: p => p.bodyParts.torso.armor += 1 },
+  { name: "Neural Booster", description: "Boosts all mental stats.", effect: p => { p.stats.hacking++; p.stats.stealth++; } },
+  { name: "Street Medallion", description: "Symbol of street loyalty. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Bandages", description: "Quick healing for wounds. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Encrypted Chip", description: "Chip with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Exosuit", description: "Powered exoskeleton. Adds 2 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=2); } },
+  { name: "Neural Firewall", description: "Protects against hacking. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Stealth Module", description: "Implant for silent movement. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Reputation Patch", description: "Temporary rep boost. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Combat Helmet", description: "Armored helmet. Adds 2 armor to head.", effect: p => p.bodyParts.head.armor += 2 },
+  { name: "Nano Repair Kit", description: "Repairs cybernetic damage. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Encrypted USB", description: "USB stick with secret files. Needed for a quest.", effect: p => {} },
+  { name: "Smartwatch", description: "Tracks your vitals. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Cybernetic Heart", description: "Reinforced heart. Boosts max HP.", effect: p => p.maxHp = (p.maxHp||0)+2 },
+  { name: "EMP Shield", description: "Protects against EMPs. Adds 1 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=1); } },
+  { name: "Neural Recorder", description: "Records everything you see. Needed for a quest.", effect: p => {} },
+  { name: "Street Fixer's Card", description: "Contact info for a fixer. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Tonic", description: "Restores 1 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+1) },
+  { name: "Encrypted Wallet", description: "Wallet with hidden credits. +10 credits.", effect: p => p.credits = (p.credits||0)+10 },
+  { name: "Combat Boots", description: "Armored boots. Adds 1 armor to both legs.", effect: p => { p.bodyParts.leftLeg.armor += 1; p.bodyParts.rightLeg.armor += 1; } },
+  { name: "Neural Dampener", description: "Reduces pain. Boosts max HP.", effect: p => p.maxHp = (p.maxHp||0)+1 },
+  { name: "Street Vendor's Pass", description: "Lets you trade in the market. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Syringe", description: "Injects healing nanites. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Encrypted Earpiece", description: "Secure comms. Needed for a quest.", effect: p => {} },
+  { name: "Combat Visor", description: "HUD for targeting. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Nano Plating", description: "Extra armor for all body parts. Adds 1 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=1); } },
+  { name: "Neural Chip", description: "Implant for faster thinking. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Street Badge", description: "Badge of honor. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Medallion", description: "Symbol of healing. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Encrypted Glasses", description: "AR glasses with secret overlays. Needed for a quest.", effect: p => {} },
+  { name: "Combat Patch", description: "Temporary combat boost. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Nano Gloves", description: "Armored gloves. Adds 1 armor to both arms.", effect: p => { p.bodyParts.leftArm.armor += 1; p.bodyParts.rightArm.armor += 1; } },
+  { name: "Neural Medkit", description: "Heals cybernetic injuries. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Street Hacker's Card", description: "Contact info for a hacker. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Nano Injector Pro", description: "Advanced healing nanites. Restores 5 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+5) },
+  { name: "Encrypted Watch", description: "Tracks secret meetings. Needed for a quest.", effect: p => {} },
+  { name: "Combat Harness", description: "Distributes armor to all body parts. Adds 1 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=1); } },
+  { name: "Nano Mask", description: "Protects against toxins. Adds 1 armor to head.", effect: p => p.bodyParts.head.armor += 1 },
+  { name: "Neural Patch", description: "Boosts all stats by 1.", effect: p => { p.stats.strength++; p.stats.hacking++; p.stats.stealth++; p.stats.reputation++; } },
+  { name: "Street Fixer's Badge", description: "Badge of a street fixer. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Shield Pro", description: "Advanced energy shield. Adds 2 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=2); } },
+  { name: "Encrypted Pendant", description: "Pendant with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Medkit", description: "Heals wounds in battle. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Nano Boots", description: "Armored boots. Adds 1 armor to both legs.", effect: p => { p.bodyParts.leftLeg.armor += 1; p.bodyParts.rightLeg.armor += 1; } },
+  { name: "Neural Scanner", description: "Scans for threats. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+1 },
+  { name: "Street Medkit", description: "Basic medkit. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Nano Patch", description: "Quick healing patch. Restores 1 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+1) },
+  { name: "Encrypted Coin", description: "Coin with secret code. Needed for a quest.", effect: p => {} },
+  { name: "Combat Mask", description: "Protects face. Adds 1 armor to head.", effect: p => p.bodyParts.head.armor += 1 },
+  { name: "Nano Visor", description: "HUD for targeting. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+1 },
+  { name: "Neural Medallion", description: "Symbol of mental strength. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+1 },
+  { name: "Street Patch", description: "Temporary street cred. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+1 },
+  { name: "Nano Harness", description: "Distributes armor to all body parts. Adds 1 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=1); } },
+  { name: "Encrypted Locket", description: "Locket with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Injector", description: "Injects combat drugs. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Nano Ring", description: "Symbol of healing. Restores 1 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+1) },
+  { name: "Neural Patch Pro", description: "Boosts all stats by 2.", effect: p => { p.stats.strength+=2; p.stats.hacking+=2; p.stats.stealth+=2; p.stats.reputation+=2; } },
+  { name: "Street Scanner Pro", description: "Advanced scanner. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+2 },
+  { name: "Nano Medkit Pro", description: "Advanced medkit. Restores 6 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+6) },
+  { name: "Encrypted Bracelet", description: "Bracelet with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Chip", description: "Chip for combat AI. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+2 },
+  { name: "Nano Patch Pro", description: "Quick healing patch. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Neural Patch Ultra", description: "Boosts all stats by 3.", effect: p => { p.stats.strength+=3; p.stats.hacking+=3; p.stats.stealth+=3; p.stats.reputation+=3; } },
+  { name: "Street Badge Pro", description: "Badge of honor. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+2 },
+  { name: "Nano Medallion Pro", description: "Symbol of healing. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Encrypted Ring", description: "Ring with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Patch Pro", description: "Temporary combat boost. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Nano Gloves Pro", description: "Armored gloves. Adds 2 armor to both arms.", effect: p => { p.bodyParts.leftArm.armor += 2; p.bodyParts.rightArm.armor += 2; } },
+  { name: "Neural Medkit Pro", description: "Heals cybernetic injuries. Restores 5 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+5) },
+  { name: "Street Hacker's Card Pro", description: "Contact info for a hacker. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+2 },
+  { name: "Nano Injector Ultra", description: "Advanced healing nanites. Restores 8 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+8) },
+  { name: "Encrypted Watch Pro", description: "Tracks secret meetings. Needed for a quest.", effect: p => {} },
+  { name: "Combat Harness Pro", description: "Distributes armor to all body parts. Adds 2 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=2); } },
+  { name: "Nano Mask Pro", description: "Protects against toxins. Adds 2 armor to head.", effect: p => p.bodyParts.head.armor += 2 },
+  { name: "Neural Patch Ultra Pro", description: "Boosts all stats by 4.", effect: p => { p.stats.strength+=4; p.stats.hacking+=4; p.stats.stealth+=4; p.stats.reputation+=4; } },
+  { name: "Street Fixer's Badge Pro", description: "Badge of a street fixer. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+2 },
+  { name: "Nano Shield Ultra", description: "Advanced energy shield. Adds 3 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=3); } },
+  { name: "Encrypted Pendant Pro", description: "Pendant with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Medkit Pro", description: "Heals wounds in battle. Restores 6 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+6) },
+  { name: "Nano Boots Pro", description: "Armored boots. Adds 2 armor to both legs.", effect: p => { p.bodyParts.leftLeg.armor += 2; p.bodyParts.rightLeg.armor += 2; } },
+  { name: "Neural Scanner Pro", description: "Scans for threats. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+2 },
+  { name: "Street Medkit Pro", description: "Basic medkit. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Nano Patch Ultra", description: "Quick healing patch. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) },
+  { name: "Encrypted Coin Pro", description: "Coin with secret code. Needed for a quest.", effect: p => {} },
+  { name: "Combat Mask Pro", description: "Protects face. Adds 2 armor to head.", effect: p => p.bodyParts.head.armor += 2 },
+  { name: "Nano Visor Pro", description: "HUD for targeting. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+2 },
+  { name: "Neural Medallion Pro", description: "Symbol of mental strength. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+2 },
+  { name: "Street Patch Pro", description: "Temporary street cred. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+2 },
+  { name: "Nano Harness Pro", description: "Distributes armor to all body parts. Adds 2 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=2); } },
+  { name: "Encrypted Locket Pro", description: "Locket with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Injector Pro", description: "Injects combat drugs. Restores 5 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+5) },
+  { name: "Nano Ring Pro", description: "Symbol of healing. Restores 2 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+2) },
+  { name: "Neural Patch Ultra Ultra", description: "Boosts all stats by 5.", effect: p => { p.stats.strength+=5; p.stats.hacking+=5; p.stats.stealth+=5; p.stats.reputation+=5; } },
+  { name: "Street Scanner Ultra", description: "Advanced scanner. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+3 },
+  { name: "Nano Medkit Ultra", description: "Advanced medkit. Restores 8 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+8) },
+  { name: "Encrypted Bracelet Pro", description: "Bracelet with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Chip Pro", description: "Chip for combat AI. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+3 },
+  { name: "Nano Patch Ultra Pro", description: "Quick healing patch. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Neural Patch Ultra Ultra Pro", description: "Boosts all stats by 6.", effect: p => { p.stats.strength+=6; p.stats.hacking+=6; p.stats.stealth+=6; p.stats.reputation+=6; } },
+  { name: "Street Badge Ultra", description: "Badge of honor. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+3 },
+  { name: "Nano Medallion Ultra", description: "Symbol of healing. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Encrypted Ring Pro", description: "Ring with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Patch Ultra", description: "Temporary combat boost. Restores 4 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+4) },
+  { name: "Nano Gloves Ultra", description: "Armored gloves. Adds 3 armor to both arms.", effect: p => { p.bodyParts.leftArm.armor += 3; p.bodyParts.rightArm.armor += 3; } },
+  { name: "Neural Medkit Ultra", description: "Heals cybernetic injuries. Restores 7 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+7) },
+  { name: "Street Hacker's Card Ultra", description: "Contact info for a hacker. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+3 },
+  { name: "Nano Injector Ultra Pro", description: "Advanced healing nanites. Restores 10 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+10) },
+  { name: "Encrypted Watch Ultra", description: "Tracks secret meetings. Needed for a quest.", effect: p => {} },
+  { name: "Combat Harness Ultra", description: "Distributes armor to all body parts. Adds 3 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=3); } },
+  { name: "Nano Mask Ultra", description: "Protects against toxins. Adds 3 armor to head.", effect: p => p.bodyParts.head.armor += 3 },
+  { name: "Neural Patch Ultra Ultra Ultra", description: "Boosts all stats by 7.", effect: p => { p.stats.strength+=7; p.stats.hacking+=7; p.stats.stealth+=7; p.stats.reputation+=7; } },
+  { name: "Street Fixer's Badge Ultra", description: "Badge of a street fixer. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+3 },
+  { name: "Nano Shield Ultra Pro", description: "Advanced energy shield. Adds 4 armor to all body parts.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=4); } },
+  { name: "Encrypted Pendant Ultra", description: "Pendant with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Medkit Ultra", description: "Heals wounds in battle. Restores 8 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+8) },
+  { name: "Nano Boots Ultra", description: "Armored boots. Adds 3 armor to both legs.", effect: p => { p.bodyParts.leftLeg.armor += 3; p.bodyParts.rightLeg.armor += 3; } },
+  { name: "Neural Scanner Ultra", description: "Scans for threats. Boosts stealth.", effect: p => p.stats.stealth = (p.stats.stealth||0)+3 },
+  { name: "Street Medkit Ultra", description: "Basic medkit. Restores 6 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+6) },
+  { name: "Nano Patch Ultra Ultra", description: "Quick healing patch. Restores 5 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+5) },
+  { name: "Encrypted Coin Ultra", description: "Coin with secret code. Needed for a quest.", effect: p => {} },
+  { name: "Combat Mask Ultra", description: "Protects face. Adds 3 armor to head.", effect: p => p.bodyParts.head.armor += 3 },
+  { name: "Nano Visor Ultra", description: "HUD for targeting. Boosts strength.", effect: p => p.stats.strength = (p.stats.strength||0)+3 },
+  { name: "Neural Medallion Ultra", description: "Symbol of mental strength. Boosts hacking.", effect: p => p.stats.hacking = (p.stats.hacking||0)+3 },
+  { name: "Street Patch Ultra", description: "Temporary street cred. Boosts reputation.", effect: p => p.stats.reputation = (p.stats.reputation||0)+3 },
+  { name: "Nano Harness Ultra", description: "Distributes armor to all body parts. Adds 3 armor.", effect: p => { Object.values(p.bodyParts).forEach(bp=>bp.armor+=3); } },
+  { name: "Encrypted Locket Ultra", description: "Locket with secret data. Needed for a quest.", effect: p => {} },
+  { name: "Combat Injector Ultra", description: "Injects combat drugs. Restores 7 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+7) },
+  { name: "Nano Ring Ultra", description: "Symbol of healing. Restores 3 HP.", effect: p => p.hp = Math.min(p.maxHp, (p.hp||0)+3) }
 ];
-for (let i = 1; i <= 120; i++) {
-  const stat = statTypes[i % statTypes.length];
-  itemDefs[`Item${i}`] = {
-    name: `Item${i}`,
-    effect: function (player) {
-      player[stat] = (player[stat] || 0) + ((i % 7) + 1);
-    },
-    appearance: `item${i}_sprite.png`,
-    description: `A cyberpunk item that boosts your ${stat}.`,
-    unlocks: i % 10 === 0 ? `task${i}` : null,
+uniqueItems.forEach((item, i) => {
+  itemDefs[`Item${i+1}`] = {
+    name: item.name,
+    description: item.description,
+    effect: item.effect,
+    appearance: `item${i+1}_sprite.png`,
+    unlocks: undefined
   };
-}
+});
 
 let factions = {
   syndicate: 0, // Street gang
@@ -191,6 +348,20 @@ let quests = {
 
 // Generate scenes for all main and sub locations
 let scenes = {};
+const subNames = {
+  alley: ["Graffiti Tunnel", "Neon Dumpster", "Street Vendor", "Shady Nook", "Back Gate"],
+  market: ["Holo-Kiosk", "Spice Stall", "Junk Dealer", "Food Cart", "Black Market"],
+  club: ["VIP Lounge", "Dance Floor", "Bar Counter", "DJ Booth", "Security Room"],
+  plaza: ["Fountain", "Statue", "Info Terminal", "Bench Row", "Street Performer"],
+  docks: ["Cargo Hold", "Fisher's Pier", "Boat Rental", "Smuggler's Shed", "Waterfront"],
+  rooftops: ["Helipad", "Solar Array", "Sky Garden", "Old Antenna", "Hidden Loft"],
+  underground: ["Maintenance Tunnel", "Old Subway", "Power Node", "Secret Den", "Flooded Chamber"],
+  cybercafe: ["VR Booth", "Server Closet", "Snack Bar", "Arcade Corner", "Restroom"],
+  luxury_store: ["Showroom", "Security Office", "Changing Room", "Manager's Suite", "Storage Vault"],
+  outskirts: ["Abandoned Car", "Dusty Path", "Old Billboard", "Checkpoint", "Makeshift Camp"],
+  bunker: ["Blast Door", "Control Room", "Dormitory", "Armory", "Mess Hall"],
+  terminal: ["Ticket Counter", "Waiting Area", "Lost & Found", "Restroom", "Security Desk"]
+};
 mainLocations.forEach((main) => {
   scenes[main] = {
     text: `You arrive at the ${main}. What will you do?`,
@@ -198,31 +369,106 @@ mainLocations.forEach((main) => {
       ...Array(5)
         .fill(0)
         .map((_, i) => ({
-          text: `Explore sub-location ${i + 1}`,
+          text: `Explore ${subNames[main][i] || `sub-location ${i + 1}`}`,
           next: `${main}_sub${i + 1}`,
         })),
-      { text: "Check inventory", action: () => render() },
       { text: "Return to alley", next: "alley" },
     ],
   };
+  // Thematic sub-location names and gameplay for each main location
+  // ...existing code...
   for (let j = 1; j <= 5; j++) {
     const sub = `${main}_sub${j}`;
-    scenes[sub] = {
-      text: `You are at ${main}'s sub-location ${j}. You find an item!`,
-      choices: [
+    const subName = subNames[main][j - 1] || `Sector ${j}`;
+    // Add simple gameplay: random event, stat check, or item
+    let gameplayText = "";
+    let choices = [];
+    if (main === "alley" && j === 1) {
+      gameplayText = "A gang member blocks your way. Test your strength (5+) to intimidate.";
+      choices = [
         {
-          text: (() => {
-            let idx = j + mainLocations.indexOf(main) * 10;
-            if (idx < 1) idx = 1;
-            if (idx > 120) idx = 120;
-            return `Pick up Item${idx}`;
-          })(),
+          text: "Intimidate (Strength 5+)",
+          condition: () => (player.strength || 0) >= 5,
           action: () => {
-            let idx = j + mainLocations.indexOf(main) * 10;
-            if (idx < 1) idx = 1;
-            if (idx > 120) idx = 120;
-            const itemName = `Item${idx}`;
-            if (!player.inventory.includes(itemName) && itemDefs[itemName]) {
+            player.credits += 10;
+            alert("You scare them off and find 10 credits!");
+            render();
+          }
+        },
+        { text: "Return to main location", next: main }
+      ];
+    } else if (main === "market" && j === 2) {
+      gameplayText = "A vendor offers a rare item for 15 credits.";
+      choices = [
+        {
+          text: "Buy Rare Chip (15 credits)",
+          condition: () => player.credits >= 15,
+          action: () => {
+            player.credits -= 15;
+            player.inventory.push("Rare Chip");
+            alert("You bought a Rare Chip!");
+            render();
+          }
+        },
+        { text: "Return to main location", next: main }
+      ];
+    } else if (main === "club" && j === 3) {
+      gameplayText = "You spot a Data Chip on the bar, but the bartender is watching.";
+      choices = [
+        {
+          text: "Steal Data Chip (Stealth 6+)",
+          condition: () => (player.stealth || 0) >= 6,
+          action: () => {
+            player.inventory.push("Data Chip");
+            alert("You swipe the Data Chip!");
+            render();
+          }
+        },
+        { text: "Return to main location", next: main }
+      ];
+    } else if (main === "plaza" && j === 4) {
+      gameplayText = "A performer offers to boost your reputation for 5 credits.";
+      choices = [
+        {
+          text: "Pay 5 credits for rep boost",
+          condition: () => player.credits >= 5,
+          action: () => {
+            player.credits -= 5;
+            player.reputation = (player.reputation || 0) + 2;
+            alert("Your reputation increases!");
+            render();
+          }
+        },
+        { text: "Return to main location", next: main }
+      ];
+    } else if (main === "docks" && j === 5) {
+      gameplayText = "A smuggler offers you a ride to the outskirts for 8 credits.";
+      choices = [
+        {
+          text: "Take ride to outskirts (8 credits)",
+          condition: () => player.credits >= 8,
+          action: () => {
+            player.credits -= 8;
+            state.scene = "outskirts";
+            alert("You travel to the outskirts!");
+            render();
+          }
+        },
+        { text: "Return to main location", next: main }
+      ];
+    } else {
+      // Default: find an item
+      let idx = j + mainLocations.indexOf(main) * 10;
+      if (idx < 1) idx = 1;
+      if (idx > 120) idx = 120;
+      gameplayText = `You find an item: Item${idx}.`;
+      const itemName = `Item${idx}`;
+      choices = [];
+      if (!player.inventory.includes(itemName)) {
+        choices.push({
+          text: `Pick up Item${idx}`,
+          action: () => {
+            if (itemDefs[itemName]) {
               player.inventory.push(itemName);
               if (
                 itemDefs[itemName] &&
@@ -235,11 +481,16 @@ mainLocations.forEach((main) => {
                 }
               }
             }
+            state.scene = main;
             render();
-          },
-        },
-        { text: "Return to main location", next: main },
-      ],
+          }
+        });
+      }
+      choices.push({ text: "Return to main location", next: main });
+    }
+    scenes[sub] = {
+      text: `${subName}: ${gameplayText}`,
+      choices
     };
   }
 });
@@ -254,8 +505,7 @@ function render() {
     scene = {
       text: `You wander into an undefined part of the city. It's eerily quiet.`,
       choices: [
-        { text: "Return to alley", next: "alley" },
-        { text: "Check inventory", action: () => render() }
+        { text: "Return to alley", next: "alley" }
       ]
     };
     // Optionally reset to a known scene
@@ -322,6 +572,45 @@ function render() {
   const storyElement = document.getElementById("story");
   const choicesElement = document.getElementById("choices");
   const statsElement = document.getElementById("stats");
+  let charPanel = document.getElementById("character-panel");
+  if (!charPanel) {
+    charPanel = document.createElement("div");
+    charPanel.id = "character-panel";
+    charPanel.style.margin = "18px 0 0 0";
+    charPanel.style.padding = "16px";
+    charPanel.style.background = "linear-gradient(90deg,#181828 60%,#0ff2 100%)";
+    charPanel.style.borderRadius = "12px";
+    charPanel.style.boxShadow = "0 0 12px #0ff, 0 0 24px #f0f";
+    charPanel.style.fontFamily = "Orbitron, Segoe UI, sans-serif";
+    charPanel.style.fontWeight = "bold";
+    charPanel.style.color = "#fff";
+    charPanel.style.maxWidth = "420px";
+    charPanel.style.fontSize = "1em";
+    canvas.parentNode.insertBefore(charPanel, canvas.nextSibling);
+  }
+  // Character menu content
+  let bp = player.bodyParts;
+  let stat = player.stats;
+  charPanel.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;">
+      <div style="min-width:160px;">
+        <span style='font-size:1.1em;color:#0ff;'>Body Health</span><br>
+        <span>Head: <span style='color:#f0f'>${bp.head.hp}</span>/${bp.head.maxHp} (Armor: ${bp.head.armor})</span><br>
+        <span>Torso: <span style='color:#f0f'>${bp.torso.hp}</span>/${bp.torso.maxHp} (Armor: ${bp.torso.armor})</span><br>
+        <span>Left Arm: <span style='color:#f0f'>${bp.leftArm.hp}</span>/${bp.leftArm.maxHp} (Armor: ${bp.leftArm.armor})</span><br>
+        <span>Right Arm: <span style='color:#f0f'>${bp.rightArm.hp}</span>/${bp.rightArm.maxHp} (Armor: ${bp.rightArm.armor})</span><br>
+        <span>Left Leg: <span style='color:#f0f'>${bp.leftLeg.hp}</span>/${bp.leftLeg.maxHp} (Armor: ${bp.leftLeg.armor})</span><br>
+        <span>Right Leg: <span style='color:#f0f'>${bp.rightLeg.hp}</span>/${bp.rightLeg.maxHp} (Armor: ${bp.rightLeg.armor})</span>
+      </div>
+      <div style="min-width:120px;">
+        <span style='font-size:1.1em;color:#0ff;'>Stats</span><br>
+        <span>Strength: <span style='color:#f0f'>${stat.strength}</span></span><br>
+        <span>Hacking: <span style='color:#f0f'>${stat.hacking}</span></span><br>
+        <span>Stealth: <span style='color:#f0f'>${stat.stealth}</span></span><br>
+        <span>Reputation: <span style='color:#f0f'>${stat.reputation}</span></span>
+      </div>
+    </div>
+  `;
   if (!canvas || !storyElement || !choicesElement || !statsElement) {
     console.log("[DEBUG] Missing UI element(s)");
     if (storyElement) {
@@ -331,74 +620,127 @@ function render() {
     return;
   }
   console.log("[DEBUG] All UI elements found");
-  // Enhanced bird's-eye city map with icons, colors, neon background
+  // --- City Map Redesign ---
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   console.log("[DEBUG] Canvas cleared");
-  // Neon city background
+  // Draw city grid background
   ctx.save();
-  ctx.globalAlpha = 0.18;
-  for (let i = 0; i < 8; i++) {
+  ctx.globalAlpha = 0.13;
+  for (let gx = 0; gx <= 400; gx += 40) {
     ctx.beginPath();
-    ctx.arc(
-      200 + Math.sin(i) * 120,
-      150 + Math.cos(i) * 90,
-      80 + i * 8,
-      0,
-      2 * Math.PI
-    );
-    ctx.fillStyle = i % 2 ? "#0ff" : "#f0f";
-    ctx.shadowColor = i % 2 ? "#0ff" : "#f0f";
-    ctx.shadowBlur = 40;
-    ctx.fill();
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, 300);
+    ctx.strokeStyle = "#0ff2";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  for (let gy = 0; gy <= 300; gy += 30) {
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(400, gy);
+    ctx.strokeStyle = "#0ff2";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
   ctx.restore();
-  // Draw roads (connections)
-  const connections = [
-    ["alley", "market"],
-    ["alley", "club"],
-    ["alley", "plaza"],
-    ["alley", "docks"],
-    ["market", "shop"],
-    ["market", "food_stall"],
-    ["market", "cybercafe"],
-    ["market", "performer"],
-    ["club", "luxury_store"],
-    ["club", "performer"],
-    ["plaza", "terminal"],
-    ["plaza", "figure"],
-    ["plaza", "luxury_store"],
-    ["docks", "boat_captain"],
-    ["docks", "fisherman"],
-    ["docks", "dealer"],
-    ["docks", "container"],
-    ["docks", "mystery_box"],
-    ["underground", "market"],
-    ["rooftops", "club"],
-    ["outskirts", "bunker"],
-    ["outskirts", "cyber_wolf"],
-    ["shop", "cybercafe"],
-    ["performer", "luxury_store"],
-    ["food_stall", "market"],
-    ["dealer", "container"],
-    ["container", "mystery_box"],
-    ["mystery_box", "fisherman"],
-  ];
-  ctx.save();
-  ctx.strokeStyle = "#444";
-  ctx.lineWidth = 4;
-  connections.forEach(([a, b]) => {
-    const p1 = cityMap[a],
-      p2 = cityMap[b];
-    if (p1 && p2) {
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
+
+  // Determine which locations to show
+  let showMain = true;
+  let showSubs = [];
+  let mainLoc = null;
+  if (mainLocations.includes(state.scene)) {
+    // In a main location: show only its sub-locations
+    showMain = false;
+    mainLoc = state.scene;
+    for (let j = 1; j <= 5; j++) {
+      showSubs.push(`${mainLoc}_sub${j}`);
     }
-  });
-  ctx.restore();
-  // --- Animated player movement ---
+  }
+
+  // Draw main locations as city blocks
+  if (showMain) {
+    mainLocations.forEach((loc) => {
+      const pos = cityMap[loc];
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pos.x - 22, pos.y - 22, 44, 44);
+      ctx.fillStyle = loc === state.scene ? "#f0f" : "#222";
+      ctx.shadowColor = loc === state.scene ? "#f0f" : "#0ff";
+      ctx.shadowBlur = loc === state.scene ? 24 : 12;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0ff";
+      ctx.stroke();
+      // Draw city block icon
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, 2 * Math.PI);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      // Location label
+      ctx.font = "bold 14px Orbitron, Segoe UI";
+      ctx.fillStyle = "#fff";
+      ctx.shadowColor = "#0ff";
+      ctx.shadowBlur = 4;
+      ctx.fillText(loc.replace(/_/g, " "), pos.x - 28, pos.y + 32);
+      ctx.restore();
+    });
+  } else if (mainLoc) {
+    // Draw sub-locations for the current main location
+    showSubs.forEach((sub, idx) => {
+      const pos = cityMap[sub];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 18, 0, 2 * Math.PI);
+      ctx.fillStyle = sub === state.scene ? "#f0f" : "#0ff";
+      ctx.shadowColor = sub === state.scene ? "#f0f" : "#0ff";
+      ctx.shadowBlur = sub === state.scene ? 24 : 12;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#fff";
+      ctx.stroke();
+      // Sub-location icon
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(-8, 0);
+      ctx.lineTo(8, 0);
+      ctx.moveTo(0, -8);
+      ctx.lineTo(0, 8);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      // Sub-location label
+      ctx.font = "bold 13px Orbitron, Segoe UI";
+      ctx.fillStyle = "#fff";
+      ctx.shadowColor = "#0ff";
+      ctx.shadowBlur = 4;
+      ctx.fillText(sub.replace(/_/g, " "), pos.x - 28, pos.y + 28);
+      ctx.restore();
+    });
+    // Draw the main location as a highlighted block
+    const pos = cityMap[mainLoc];
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pos.x - 22, pos.y - 22, 44, 44);
+    ctx.fillStyle = "#f0f";
+    ctx.shadowColor = "#f0f";
+    ctx.shadowBlur = 24;
+    ctx.globalAlpha = 0.5;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- Draw animated player dot ---
   let defaultPos = { x: 200, y: 150 };
   let scenePos = cityMap[state.scene] || defaultPos;
   if (!window._playerAnim)
@@ -410,109 +752,6 @@ function render() {
   anim.y += (target.y - anim.y) * 0.3;
   if (Math.abs(anim.x - target.x) < 1) anim.x = target.x;
   if (Math.abs(anim.y - target.y) < 1) anim.y = target.y;
-  // --- Draw locations with icons, colors, and quest highlighting ---
-  Object.entries(cityMap).forEach(([loc, pos]) => {
-    ctx.save();
-    // Highlight quest objectives
-    let isQuest = pos.type === "quest";
-    let fill, glow;
-    if (pos.type === "shop") {
-      fill = "#0ff";
-      glow = "#0ff";
-    } else if (pos.type === "danger") {
-      fill = "#f00";
-      glow = "#f00";
-    } else if (pos.type === "quest") {
-      fill = "#ff0";
-      glow = "#ff0";
-    } else if (pos.type === "special") {
-      fill = "#0f0";
-      glow = "#0f0";
-    } else {
-      fill = "#222";
-      glow = "#fff";
-    }
-    // Icon shape by type
-    if (pos.type === "shop") {
-      ctx.beginPath();
-      ctx.rect(pos.x - 14, pos.y - 14, 28, 28);
-    } else if (pos.type === "danger") {
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 18, 0, 2 * Math.PI);
-    } else if (pos.type === "quest") {
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y - 18);
-      ctx.lineTo(pos.x + 18, pos.y + 18);
-      ctx.lineTo(pos.x - 18, pos.y + 18);
-      ctx.closePath();
-    } else if (pos.type === "special") {
-      ctx.beginPath();
-      ctx.ellipse(pos.x, pos.y, 18, 12, 0, 0, 2 * Math.PI);
-    } else {
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 18, 0, 2 * Math.PI);
-    }
-    ctx.fillStyle = loc === state.scene ? "#f0f" : fill;
-    ctx.shadowColor = loc === state.scene ? "#f0f" : glow;
-    ctx.shadowBlur = loc === state.scene ? 24 : isQuest ? 18 : 12;
-    ctx.globalAlpha = isQuest ? 0.95 : 0.85;
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = glow;
-    ctx.stroke();
-    // Draw icon (simple cyberpunk glyph)
-    ctx.save();
-    ctx.translate(pos.x, pos.y);
-    ctx.globalAlpha = 0.7;
-    if (pos.type === "shop") {
-      ctx.beginPath();
-      ctx.moveTo(-8, 0);
-      ctx.lineTo(8, 0);
-      ctx.moveTo(0, -8);
-      ctx.lineTo(0, 8);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (pos.type === "danger") {
-      ctx.beginPath();
-      ctx.arc(0, 0, 6, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-8, -8);
-      ctx.lineTo(8, 8);
-      ctx.moveTo(8, -8);
-      ctx.lineTo(-8, 8);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    } else if (pos.type === "quest") {
-      ctx.beginPath();
-      ctx.moveTo(0, -8);
-      ctx.lineTo(8, 8);
-      ctx.lineTo(-8, 8);
-      ctx.closePath();
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (pos.type === "special") {
-      ctx.beginPath();
-      ctx.arc(0, 0, 8, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    ctx.restore();
-    // Location label
-    ctx.font = "bold 13px Orbitron, Segoe UI";
-    ctx.fillStyle = "#fff";
-    ctx.shadowColor = "#0ff";
-    ctx.shadowBlur = 4;
-    ctx.fillText(loc.replace(/_/g, " "), pos.x - 28, pos.y - 24);
-    ctx.restore();
-  });
-  // --- Draw animated player dot ---
   ctx.save();
   ctx.beginPath();
   ctx.arc(anim.x, anim.y, 12, 0, 2 * Math.PI);
@@ -715,17 +954,3 @@ document.addEventListener("DOMContentLoaded", () => {
     showFatalError("Game failed to load: " + e.message);
   }
 });
-window.onload = function () {
-  try {
-    render();
-  } catch (e) {
-    showFatalError("Game failed to load: " + e.message);
-  }
-};
-
-// Ensure game always initializes
-try {
-  render();
-} catch (e) {
-  showFatalError("Game failed to load: " + e.message);
-}
