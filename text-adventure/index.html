@@ -12,7 +12,6 @@
         <div id="main-flex">
             <div id="left-panel">
                 <canvas id="map-canvas" width="400" height="300"></canvas>
-                <div id="character-visual"></div>
                 <div id="customise-panel" style="display:none;"></div>
             </div>
             <div id="center-panel">
@@ -21,11 +20,18 @@
                 <div id="stats"></div>
             </div>
             <div id="right-panel">
+                <div id="character-panel" style="background:#181828;border-radius:16px;padding:16px 8px 8px 8px;margin-bottom:24px;box-shadow:0 0 16px #0ff8,0 0 32px #f0f4;">
+                  <div id="character-visual" style="margin-bottom:12px;display:flex;justify-content:center;align-items:center;"></div>
+                  <div id="character-stats"></div>
+                </div>
                 <h2>Inventory</h2>
                 <div id="inventory-visual"></div>
             </div>
         </div>
     </div>
+    <!-- DiceBear Avatars CDN for SVG avatar generation -->
+    <script src="https://cdn.jsdelivr.net/npm/@dicebear/avatars@4.10.1/dist/avatars.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@dicebear/pixel-art@4.10.1/dist/style.min.js"></script>
     <!-- Standard script loading for game.js -->
     <script src="game.js"></script>
 </body>

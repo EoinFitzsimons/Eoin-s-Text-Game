@@ -1,3 +1,58 @@
+// --- Helper: Validate and set scene safely ---
+function setSceneSafe(nextScene) {
+  if (typeof nextScene === 'function') nextScene = nextScene();
+  if (nextScene && scenes[nextScene]) {
+    state.scene = nextScene;
+  } else {
+    // fallback to alley or a safe default
+    state.scene = 'alley';
+    console.warn('[SCENE] Invalid scene transition, falling back to alley.');
+  }
+}
+// --- Render Stats (only show valid stats) ---
+function renderStats() {
+  const statsDiv = document.getElementById('character-stats');
+  if (!statsDiv) return;
+  let html = '<h3 style="color:#0ff;margin-bottom:4px;">Body Health</h3>';
+  html += `<div>Head: ${player.bodyParts.head.hp}/${player.bodyParts.head.maxHp} (Armor: ${player.bodyParts.head.armor||0})</div>`;
+  html += `<div>Torso: ${player.bodyParts.torso.hp}/${player.bodyParts.torso.maxHp} (Armor: ${player.bodyParts.torso.armor||0})</div>`;
+  html += `<div>Left Arm: ${player.bodyParts.leftArm.hp}/${player.bodyParts.leftArm.maxHp} (Armor: ${player.bodyParts.leftArm.armor||0})</div>`;
+  html += `<div>Right Arm: ${player.bodyParts.rightArm.hp}/${player.bodyParts.rightArm.maxHp} (Armor: ${player.bodyParts.rightArm.armor||0})</div>`;
+  html += `<div>Left Leg: ${player.bodyParts.leftLeg.hp}/${player.bodyParts.leftLeg.maxHp} (Armor: ${player.bodyParts.leftLeg.armor||0})</div>`;
+  html += `<div>Right Leg: ${player.bodyParts.rightLeg.hp}/${player.bodyParts.rightLeg.maxHp} (Armor: ${player.bodyParts.rightLeg.armor||0})</div>`;
+  html += '<h3 style="color:#0ff;margin:8px 0 4px 0;">Stats</h3>';
+  const statList = ["strength", "agility", "technical", "charisma", "perception"];
+  for (const stat of statList) {
+    html += `<div>${stat.charAt(0).toUpperCase()+stat.slice(1)}: ${player.stats[stat]||1}</div>`;
+  }
+  statsDiv.innerHTML = html;
+}
+// --- DiceBear Avatar Helpers (global scope) ---
+function getDiceBearSVG(seed) {
+  // Use DiceBear pixel-art style (window.pixelArt from CDN)
+  if (window.avatars && window.pixelArt) {
+    // Generate SVG and increase its size
+    let svg = window.avatars.createAvatar(window.pixelArt, { seed });
+    // Enlarge SVG by changing width/height attributes (default is 64)
+    svg = svg.replace('<svg', '<svg width="180" height="180"');
+    return svg;
+  }
+  return '<div style="width:180px;height:180px;background:#222;color:#0ff;display:flex;align-items:center;justify-content:center;">Loading...</div>';
+}
+
+function renderCharacterVisual() {
+  const charDiv = document.getElementById('character-visual');
+  if (!charDiv) return;
+  let seed = player.appearance && player.appearance.seed;
+  if (!seed && typeof appearance !== 'undefined') {
+    seed = `${hairStyles[appearance.hair]}-${colors[appearance.color]}-${faces[appearance.face]}`;
+  }
+  if (seed) {
+    charDiv.innerHTML = getDiceBearSVG(seed);
+  } else {
+    charDiv.innerHTML = '';
+  }
+}
 console.log("game.js loaded");
 
 window.onerror = function (message, source, lineno, colno, error) {
@@ -19,8 +74,6 @@ let player = {
   inventory: [],
   vehicle: null,
   speed: 1,
-  x: 2,
-  y: 2,
   bodyParts: {
     head: { hp: 5, maxHp: 5, armor: 0 },
     torso: { hp: 8, maxHp: 8, armor: 0 },
@@ -31,9 +84,10 @@ let player = {
   },
   stats: {
     strength: 1,
-    hacking: 1,
-    stealth: 1,
-    reputation: 0
+    agility: 1,
+    technical: 1,
+    charisma: 1,
+    perception: 1
   }
 };
 let state = { scene: "alley" };
@@ -363,9 +417,154 @@ const subNames = {
   terminal: ["Ticket Counter", "Waiting Area", "Lost & Found", "Restroom", "Security Desk"]
 };
 mainLocations.forEach((main) => {
+  // Complex branching for main locations
+  let mainBranches = [];
+  if (main === "alley") {
+    mainBranches = [
+      {
+        text: `Confront the gang (Strength 4+ or Neon Blade)
+You step into the neon-lit alley, boots splashing in puddles of oil and rain. The gang blocks your path, their faces obscured by flickering holomasks. One cracks his knuckles, another twirls a glowing chain. The air is thick with tension and the distant hum of city drones. You can smell synth-ale and ozone. A rat scurries past your foot. The gang leader grins, revealing gold-plated teeth. "This is our turf, choom. Pay up or bleed out." You clench your fists, feeling the weight of your cybernetic enhancements. The alley narrows behind you, escape impossible. A flicker of movement catches your eye—a hidden camera, recording everything. The gang's laughter echoes off the graffiti-stained walls. You sense a test of strength, reputation, and nerve. The city watches. Will you stand tall or back down? The rain intensifies, washing neon colors down the walls. Your heart pounds. The gang closes in, ready for a show.`,
+        condition: () => player.stats.strength >= 4 || player.inventory.includes("Neon Blade"),
+        action: () => {
+          if (player.stats.strength >= 4) {
+            player.credits += 20;
+            alert(`You unleash your power, cybernetic muscles surging. The gang is caught off guard as you send their leader sprawling. The others scatter, leaving behind a stash of stolen credits. You loot 20 credits and your reputation grows. The city whispers your name.`);
+          } else {
+            player.credits += 10;
+            alert(`You draw your Neon Blade, its glow cutting through the darkness. The gang recoils in fear, recognizing the weapon. They flee, dropping a credstick in their haste. You gain 10 credits. The alley is yours, for now.`);
+          }
+          render();
+        }
+      },
+      {
+        text: `Sneak past the gang (Agility 3+ or Holo Cloak)
+You press yourself against the cold, damp wall, blending into the shadows. The gang is distracted, arguing over loot. Your Holo Cloak shimmers, distorting your outline. You time your movements with the flicker of neon signs and the rumble of passing hovercars. A cat yowls, masking your footsteps. You slip behind a dumpster, heart racing. The gang's lookout glances your way, but your agility and tech keep you hidden. You spot a discarded datachip glinting in the trash. The alley seems to stretch forever, every step a risk. You hear a snippet of conversation—something about a big job at the docks. The city smells of rain and burnt circuits. You reach the far end, unseen.`,
+        condition: () => player.stats.agility >= 3 || player.inventory.includes("Holo Cloak"),
+        action: () => {
+          alert(`You move like a ghost, unseen and unheard. As you pass, you overhear a secret code: 9X-ALPHA. You pocket an Encrypted Code from the trash. The gang never knew you were there.`);
+          player.inventory.push("Encrypted Code");
+          render();
+        }
+      },
+      {
+        text: `Hack the alley cameras (Technical 3+ or Data Spike)
+You kneel beside a rusted access panel, tools at the ready. The rain sparks against exposed wires. You jack in, your neural interface flooding with data. The city's security grid pulses beneath your fingertips. You bypass firewalls, reroute power, and disable the alley's cameras. The gang is oblivious, their crimes unrecorded. You spot a hidden cache icon blinking on your HUD. The system offers up secrets: gang hideouts, police patrols, and a stash nearby. Your technical skill is your weapon. The city is a puzzle, and you hold the key.`,
+        condition: () => player.stats.technical >= 3 || player.inventory.includes("Data Spike"),
+        action: () => {
+          alert(`You disable the cameras, erasing all evidence. A hidden panel slides open, revealing a cache of supplies. You gain a Hidden Cache. The city rewards the clever.`);
+          player.inventory.push("Hidden Cache");
+          render();
+        }
+      }
+    ];
+  } else if (main === "market") {
+    mainBranches = [
+      {
+        text: `Trade with the black market (Charisma 2+ or Reputation Badge)
+The market is a labyrinth of neon stalls, each one hawking wares both legal and forbidden. Holo-signs flicker overhead, advertising everything from synth-spices to illegal cyberware. The air is thick with the scent of fried noodles, ozone, and desperation. You weave through the crowd, past a street musician playing a digital shamisen. In a shadowy alcove, a black market dealer eyes you warily. His fingers drum on a crate of EMP grenades. "You got the creds or the rep?" he asks, voice modulated by a cheap voice-changer. A drone buzzes overhead, scanning for trouble. The dealer's bodyguard, a towering cyborg, cracks his knuckles. You flash your Reputation Badge, or maybe just your winning smile. The dealer grins, revealing a gold tooth. "Alright, choom. For you, a special deal." The transaction is quick, hands never quite touching. You feel the weight of the city watching.`,
+        condition: () => player.stats.charisma >= 2 || player.inventory.includes("Reputation Badge"),
+        action: () => {
+          player.inventory.push("EMP Grenade");
+          alert(`You gain the trust of the black market. The dealer slips you an EMP Grenade, wrapped in a synth-leather pouch. "Use it wisely," he whispers. The city just got a little more dangerous.`);
+          render();
+        }
+      },
+      {
+        text: `Steal from a vendor (Agility 4+)
+You move through the market like a shadow, eyes scanning for opportunity. A vendor is distracted, arguing with a customer over the price of a fake memory crystal. You slip behind the stall, fingers nimble and quick. The crowd is a living shield, hiding your movements. You spot a credstick half-hidden beneath a pile of knockoff cyberdecks. The vendor's back is turned, his attention on the shouting match. You time your move perfectly, snatching the credstick and melting back into the throng. The city is a game, and you just scored a win.`,
+        condition: () => player.stats.agility >= 4,
+        action: () => {
+          player.credits += 15;
+          alert(`You steal 15 credits from a distracted vendor. The credstick is warm in your hand, and you vanish into the crowd before anyone notices. The market's chaos is your ally.`);
+          render();
+        }
+      },
+      {
+        text: `Buy rare cyberware (Credits 30+)
+You approach a stall draped in shimmering fabric, guarded by a pair of silent drones. The merchant, a woman with chrome-plated eyes, sizes you up. "Looking for something special?" she asks. You nod, sliding 30 credits across the counter. She produces a case, opening it to reveal Prototype Cyberware gleaming in the neon light. The transaction is smooth, professional. You feel the weight of the new tech in your hands. The merchant leans in, whispering, "This will change your life, for better or worse." You pocket the cyberware, feeling the city shift around you.`,
+        condition: () => player.credits >= 30,
+        action: () => {
+          player.credits -= 30;
+          player.inventory.push("Prototype Cyberware");
+          alert(`You purchase Prototype Cyberware! The merchant's eyes flash with approval. "May your upgrades serve you well," she says. The city is full of possibilities.`);
+          render();
+        }
+      }
+    ];
+  } else if (main === "club") {
+    mainBranches = [
+      {
+        text: `Bribe the bartender (Credits 10+)
+The club pulses with synth beats, the floor vibrating beneath your feet. Holo-lights paint the crowd in shifting patterns of blue and magenta. The bartender, a grizzled ex-merc with a cybernetic arm, polishes a glass behind the bar. You slide up, catching his eye. "Looking for something special?" he asks, voice barely audible over the music. You flash a credstick, and he nods, sliding you a drink laced with nanites. The crowd is a sea of dancers, lost in the rhythm. A VIP area glows behind a velvet rope, guarded by a pair of augmented bouncers. The bartender leans in, whispering about a data deal going down in the back room. You feel the weight of the city's secrets pressing in. The air smells of ozone, sweat, and expensive perfume. You know a bribe here can open doors—or get you in trouble.`,
+        condition: () => player.credits >= 10,
+        action: () => {
+          player.credits -= 10;
+          player.inventory.push("Encrypted Drive");
+          alert(`The bartender slips you an Encrypted Drive under the counter. "Don't say I never did you a favor," he mutters. You pocket the drive, feeling eyes on your back as you melt into the crowd.`);
+          render();
+        }
+      },
+      {
+        text: `Dance for info (Agility 2+)
+You step onto the dance floor, letting the music take control. The crowd parts as you move, your agility and style drawing admiring glances. Neon tattoos pulse in time with the beat. A mysterious figure watches from the shadows, their gaze lingering on you. You spin, leap, and slide, every move a statement. The DJ nods in approval, dropping a track just for you. The crowd cheers, and someone slips you a coded message. You catch snippets of conversation—rumors of a big job, a stolen AI, a gang war brewing. The city speaks in rhythm and code. You leave the floor breathless, charisma burning bright.`,
+        condition: () => player.stats.agility >= 2,
+        action: () => {
+          player.stats.charisma += 1;
+          alert(`Your moves impress the crowd. Someone whispers a tip in your ear, and your Charisma increases by 1. The club is your stage tonight.`);
+          render();
+        }
+      },
+      {
+        text: `Hack the DJ booth (Technical 4+)
+You slip behind the DJ booth, dodging cables and security drones. The DJ, lost in the music, doesn't notice as you jack into the sound system. Your interface floods with encrypted files and playlists. You bypass the firewalls, injecting your own track into the mix. The crowd goes wild as your signature sound takes over. In the chaos, you access a hidden directory—VIP Passes, encrypted messages, and a list of high rollers. You snag a VIP Pass, slipping it into your pocket as the DJ finally notices. "Nice work," he says, grinning. "You ever need a gig, let me know." The city rewards the bold and the clever.`,
+        condition: () => player.stats.technical >= 4,
+        action: () => {
+          player.inventory.push("VIP Pass");
+          alert(`You hack the playlist and get a VIP Pass! The DJ gives you a nod of respect. The club's secrets are now yours to explore.`);
+          render();
+        }
+      }
+    ];
+  } else if (main === "plaza") {
+    mainBranches = [
+      {
+        text: `Help the street performer (Give Synth Ale)
+The plaza is alive with color and sound. Holo-billboards tower overhead, advertising the latest cyberware and synth-pop stars. A street performer juggles glowing orbs, his movements fluid and mesmerizing. The crowd is a mix of locals, tourists, and off-duty corp security. Vendors shout over the din, selling everything from neon noodles to black market chips. The air is thick with the scent of fried food and ozone. You spot a group of kids watching the performer, eyes wide with wonder. The performer stumbles, clearly exhausted. You remember the Synth Ale in your pack. The city is a stage, and every act has its price.`,
+        condition: () => player.inventory.includes("Synth Ale"),
+        action: () => {
+          player.inventory = player.inventory.filter(i => i !== "Synth Ale");
+          player.stats.charisma += 2;
+          alert(`The performer gratefully accepts your Synth Ale, taking a long drink. His energy returns, and the crowd erupts in applause. "Thank you, friend," he whispers. "Charisma +2!" The city rewards kindness.`);
+          render();
+        }
+      },
+      {
+        text: `Hack the info terminal (Technical 5+)
+You approach the info terminal, its screen flickering with static. You jack in, your neural interface buzzing. Layers of corporate security try to block you, but your skills are sharper. You bypass firewalls, decrypt files, and access hidden city records. The terminal reveals secrets: police patrols, gang movements, and a list of VIPs. You download the data onto an Encrypted Tablet. The city is an open book for those who know how to read it.`,
+        condition: () => player.stats.technical >= 5,
+        action: () => {
+          player.inventory.push("Encrypted Tablet");
+          alert(`You download secret data onto an Encrypted Tablet. The city’s secrets are now at your fingertips. Use them wisely.`);
+          render();
+        }
+      },
+      {
+        text: `Intimidate the crowd (Strength 5+)
+You stand tall in the center of the plaza, your presence impossible to ignore. The crowd senses your strength, parting as you approach. You glare at a group of street punks, and they back away, dropping a credstick in their haste. Vendors lower their prices, hoping to avoid your wrath. The city respects power, and today, you are the strongest.`,
+        condition: () => player.stats.strength >= 5,
+        action: () => {
+          player.credits += 25;
+          alert(`You shake down the crowd for 25 credits. The city bows to strength, but remember: every action has consequences.`);
+          render();
+        }
+      }
+    ];
+  }
+  // Add default explore sub-locations and return
   scenes[main] = {
     text: `You arrive at the ${main}. What will you do?`,
     choices: [
+      ...mainBranches,
       ...Array(5)
         .fill(0)
         .map((_, i) => ({
@@ -383,22 +582,42 @@ mainLocations.forEach((main) => {
     // Add simple gameplay: random event, stat check, or item
     let gameplayText = "";
     let choices = [];
+    // Branching sub-location stories and item effects
     if (main === "alley" && j === 1) {
-      gameplayText = "A gang member blocks your way. Test your strength (5+) to intimidate.";
+      gameplayText = "A gang member blocks your way. You can fight, sneak, or bribe.";
       choices = [
         {
-          text: "Intimidate (Strength 5+)",
-          condition: () => (player.strength || 0) >= 5,
+          text: "Fight (Strength 5+ or Neon Blade)",
+          condition: () => player.stats.strength >= 5 || player.inventory.includes("Neon Blade"),
           action: () => {
-            player.credits += 10;
-            alert("You scare them off and find 10 credits!");
+            player.credits += 15;
+            alert("You defeat the gang member and find 15 credits!");
+            render();
+          }
+        },
+        {
+          text: "Sneak (Agility 4+ or Holo Cloak)",
+          condition: () => player.stats.agility >= 4 || player.inventory.includes("Holo Cloak"),
+          action: () => {
+            player.inventory.push("Encrypted Code");
+            alert("You sneak by and find an Encrypted Code.");
+            render();
+          }
+        },
+        {
+          text: "Bribe (Credits 10+)",
+          condition: () => player.credits >= 10,
+          action: () => {
+            player.credits -= 10;
+            player.stats.charisma += 1;
+            alert("The gang lets you pass. Charisma +1.");
             render();
           }
         },
         { text: "Return to main location", next: main }
       ];
     } else if (main === "market" && j === 2) {
-      gameplayText = "A vendor offers a rare item for 15 credits.";
+      gameplayText = "A vendor offers a rare item, but you can also try to hack or steal it.";
       choices = [
         {
           text: "Buy Rare Chip (15 credits)",
@@ -410,14 +629,50 @@ mainLocations.forEach((main) => {
             render();
           }
         },
+        {
+          text: "Hack the vendor (Technical 4+ or Data Spike)",
+          condition: () => player.stats.technical >= 4 || player.inventory.includes("Data Spike"),
+          action: () => {
+            player.inventory.push("Encrypted Keycard");
+            alert("You hack the vendor and get an Encrypted Keycard!");
+            render();
+          }
+        },
+        {
+          text: "Steal (Agility 5+)",
+          condition: () => player.stats.agility >= 5,
+          action: () => {
+            player.inventory.push("EMP Grenade");
+            alert("You steal an EMP Grenade!");
+            render();
+          }
+        },
         { text: "Return to main location", next: main }
       ];
     } else if (main === "club" && j === 3) {
-      gameplayText = "You spot a Data Chip on the bar, but the bartender is watching.";
+      gameplayText = "You spot a Data Chip on the bar, but the bartender is watching. You can distract, hack, or sneak.";
       choices = [
         {
-          text: "Steal Data Chip (Stealth 6+)",
-          condition: () => (player.stealth || 0) >= 6,
+          text: "Distract bartender (Charisma 3+)",
+          condition: () => player.stats.charisma >= 3,
+          action: () => {
+            player.inventory.push("Data Chip");
+            alert("You distract the bartender and grab the Data Chip!");
+            render();
+          }
+        },
+        {
+          text: "Hack security (Technical 6+)",
+          condition: () => player.stats.technical >= 6,
+          action: () => {
+            player.inventory.push("Encrypted Drive");
+            alert("You hack the security and get an Encrypted Drive!");
+            render();
+          }
+        },
+        {
+          text: "Sneak (Agility 6+)",
+          condition: () => player.stats.agility >= 6,
           action: () => {
             player.inventory.push("Data Chip");
             alert("You swipe the Data Chip!");
@@ -427,15 +682,33 @@ mainLocations.forEach((main) => {
         { text: "Return to main location", next: main }
       ];
     } else if (main === "plaza" && j === 4) {
-      gameplayText = "A performer offers to boost your reputation for 5 credits.";
+      gameplayText = "A performer offers to boost your charisma for 5 credits, or you can hack the crowd or perform yourself.";
       choices = [
         {
-          text: "Pay 5 credits for rep boost",
+          text: "Pay 5 credits for charisma boost",
           condition: () => player.credits >= 5,
           action: () => {
             player.credits -= 5;
-            player.reputation = (player.reputation || 0) + 2;
-            alert("Your reputation increases!");
+            player.stats.charisma += 2;
+            alert("Your charisma increases!");
+            render();
+          }
+        },
+        {
+          text: "Hack the crowd (Technical 5+)",
+          condition: () => player.stats.technical >= 5,
+          action: () => {
+            player.inventory.push("Encrypted Tablet");
+            alert("You hack the crowd's AR and get an Encrypted Tablet!");
+            render();
+          }
+        },
+        {
+          text: "Perform (Agility 4+)",
+          condition: () => player.stats.agility >= 4,
+          action: () => {
+            player.stats.charisma += 1;
+            alert("Your performance is a hit! Charisma +1.");
             render();
           }
         },
@@ -457,16 +730,39 @@ mainLocations.forEach((main) => {
         { text: "Return to main location", next: main }
       ];
     } else {
-      // Default: find an item
+      // Default: find an item, but add branching if item is special
       let idx = j + mainLocations.indexOf(main) * 10;
       if (idx < 1) idx = 1;
       if (idx > 120) idx = 120;
-      gameplayText = `You find an item: Item${idx}.`;
       const itemName = `Item${idx}`;
+      gameplayText = `You find an item: ${itemDefs[itemName]?.name || itemName}.`;
       choices = [];
+      // Branch: if item is a medkit, offer to use immediately
+      if (itemDefs[itemName]?.name?.toLowerCase().includes("medkit")) {
+        choices.push({
+          text: `Use ${itemDefs[itemName].name} now`,
+          action: () => {
+            itemDefs[itemName].effect(player);
+            alert(`You use the ${itemDefs[itemName].name}.`);
+            render();
+          }
+        });
+      }
+      // Branch: if item is a hacking tool, offer to hack something
+      if (itemDefs[itemName]?.name?.toLowerCase().includes("hack") || itemDefs[itemName]?.name?.toLowerCase().includes("deck")) {
+        choices.push({
+          text: `Hack a nearby terminal with ${itemDefs[itemName].name}`,
+          action: () => {
+            player.stats.technical += 1;
+            alert("You hack a terminal and boost your technical stat!");
+            render();
+          }
+        });
+      }
+      // Default: pick up item
       if (!player.inventory.includes(itemName)) {
         choices.push({
-          text: `Pick up Item${idx}`,
+          text: `Pick up ${itemDefs[itemName]?.name || itemName}`,
           action: () => {
             if (itemDefs[itemName]) {
               player.inventory.push(itemName);
@@ -480,6 +776,41 @@ mainLocations.forEach((main) => {
                   console.error("Error applying item effect:", itemName, e);
                 }
               }
+            }
+            // Force inventory panel update immediately
+            const inventoryPanel = document.getElementById("inventory-visual");
+            if (inventoryPanel) {
+              inventoryPanel.innerHTML = "";
+              player.inventory.forEach((itemKey) => {
+                const def = itemDefs[itemKey] || {};
+                const itemDiv = document.createElement("div");
+                itemDiv.innerHTML = `<b>${def.name || itemKey}</b><br><span style='font-size:0.9em;color:#444'>${def.description || ""}</span>`;
+                itemDiv.style.padding = "6px 12px";
+                itemDiv.style.margin = "4px";
+                itemDiv.style.background = "linear-gradient(90deg,#0ff2,#f0f2)";
+                itemDiv.style.color = "#222";
+                itemDiv.style.borderRadius = "8px";
+                itemDiv.style.fontFamily = "Orbitron, Segoe UI, sans-serif";
+                itemDiv.style.fontWeight = "bold";
+                itemDiv.style.boxShadow = "0 0 8px #0ff, 0 0 16px #f0f";
+                // Add hint button
+                const hintBtn = document.createElement("button");
+                hintBtn.textContent = "Get Hint";
+                hintBtn.style.marginLeft = "12px";
+                hintBtn.style.background =
+                  "linear-gradient(90deg,#222 60%, #0ff2 100%)";
+                hintBtn.style.color = "#0ff";
+                hintBtn.style.border = "2px solid #0ff";
+                hintBtn.style.borderRadius = "8px";
+                hintBtn.style.fontFamily = "Orbitron, Segoe UI, sans-serif";
+                hintBtn.style.fontWeight = "bold";
+                hintBtn.style.cursor = "pointer";
+                hintBtn.onclick = () => {
+                  alert(itemHints[itemKey] || "No hint available for this item.");
+                };
+                itemDiv.appendChild(hintBtn);
+                inventoryPanel.appendChild(itemDiv);
+              });
             }
             state.scene = main;
             render();
@@ -691,37 +1022,40 @@ function render() {
       ctx.fillText(loc.replace(/_/g, " "), pos.x - 28, pos.y + 32);
       ctx.restore();
     });
-  } else if (mainLoc) {
-    // Draw sub-locations for the current main location
-    showSubs.forEach((sub, idx) => {
-      const pos = cityMap[sub];
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(pos.x, pos.y, 18, 0, 2 * Math.PI);
-      ctx.fillStyle = sub === state.scene ? "#f0f" : "#0ff";
-      ctx.shadowColor = sub === state.scene ? "#f0f" : "#0ff";
-      ctx.shadowBlur = sub === state.scene ? 24 : 12;
-      ctx.globalAlpha = 0.92;
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#fff";
-      ctx.stroke();
-      // Sub-location icon
-      ctx.save();
-      ctx.translate(pos.x, pos.y);
-      ctx.globalAlpha = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(-8, 0);
-      ctx.lineTo(8, 0);
-      ctx.moveTo(0, -8);
-      ctx.lineTo(0, 8);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-      // Sub-location label
-      ctx.font = "bold 13px Orbitron, Segoe UI";
-      ctx.fillStyle = "#fff";
+  } else if (main === "docks") {
+    mainBranches = [
+      {
+        text: `Sneak onto a cargo ship (Agility 4+)
+The docks are a maze of shipping containers, cranes, and flickering floodlights. The air is thick with the scent of salt, oil, and ozone. Cargo ships from distant megacities unload their goods under the watchful eyes of corp security. You move like a shadow, slipping between crates and dodging patrols. The sound of waves mixes with the hum of engines. You spot a crate marked with a strange symbol—inside, something glints. The city’s underbelly is alive with secrets, and tonight, you’re a ghost among thieves.`,
+        condition: () => player.stats.agility >= 4,
+        action: () => {
+          player.inventory.push("Rare Chip");
+          alert(`You find a Rare Chip hidden in a crate! The docks are full of surprises for those quick enough to seize them.`);
+          render();
+        }
+      },
+      {
+        text: `Bribe a dockworker (Credits 15+)
+You approach a dockworker, his face half-hidden by a battered cap. He eyes you warily, then glances at your credstick. "Looking for a ride?" he asks. You nod, sliding him the credits. He leads you to a small boat, its engine purring softly. "Keep your head down," he warns. The city’s waterways are full of danger—and opportunity.`,
+        condition: () => player.credits >= 15,
+        action: () => {
+          player.credits -= 15;
+          player.inventory.push("Boat Rental");
+          alert(`You rent a boat for a secret job. The dockworker disappears into the night, and you set off across the water, the city lights fading behind you.`);
+          render();
+        }
+      },
+      {
+        text: `Fight off smugglers (Strength 5+)
+A group of smugglers unloads crates under the cover of darkness. You step out of the shadows, fists clenched. The leader sneers, drawing a plasma knife. The fight is brutal, but your strength prevails. The smugglers flee, leaving behind a stash of credits. The city rewards the bold.`,
+        condition: () => player.stats.strength >= 5,
+        action: () => {
+          player.credits += 20;
+          alert(`You defeat the smugglers and find 20 credits. The docks are a little safer tonight—thanks to you.`);
+          render();
+        }
+      }
+    ];
       ctx.shadowColor = "#0ff";
       ctx.shadowBlur = 4;
       ctx.fillText(sub.replace(/_/g, " "), pos.x - 28, pos.y + 28);
@@ -806,8 +1140,9 @@ function render() {
   // --- Animate ---
   if (anim.x !== target.x || anim.y !== target.y) setTimeout(render, 16);
   // Show story text
-  storyElement.innerHTML =
-    typeof scene.text === "function" ? scene.text() : scene.text;
+  storyElement.innerHTML = typeof scene.text === "function" ? scene.text() : scene.text;
+  // Render stats panel in character panel
+  renderStats();
   console.log("[DEBUG] Story updated");
   choicesElement.innerHTML = "";
   console.log("[DEBUG] Choices cleared");
@@ -819,8 +1154,7 @@ function render() {
     const btn = document.createElement("button");
     btn.textContent = choice.text;
     btn.onclick = () => {
-      state.scene =
-        typeof choice.next === "function" ? choice.next() : choice.next;
+      setSceneSafe(choice.next);
       render();
     };
     choicesElement.appendChild(btn);
@@ -840,9 +1174,10 @@ function render() {
       inventoryPanel.innerHTML =
         '<span style="color:#888">Inventory empty</span>';
     } else {
-      player.inventory.forEach((item) => {
+      player.inventory.forEach((itemKey) => {
+        const def = itemDefs[itemKey] || {};
         const itemDiv = document.createElement("div");
-        itemDiv.textContent = item;
+        itemDiv.innerHTML = `<b>${def.name || itemKey}</b><br><span style='font-size:0.9em;color:#444'>${def.description || ""}</span>`;
         itemDiv.style.padding = "6px 12px";
         itemDiv.style.margin = "4px";
         itemDiv.style.background = "linear-gradient(90deg,#0ff2,#f0f2)";
@@ -864,7 +1199,7 @@ function render() {
         hintBtn.style.fontWeight = "bold";
         hintBtn.style.cursor = "pointer";
         hintBtn.onclick = () => {
-          alert(itemHints[item] || "No hint available for this item.");
+          alert(itemHints[itemKey] || "No hint available for this item.");
         };
         itemDiv.appendChild(hintBtn);
         inventoryPanel.appendChild(itemDiv);
@@ -908,27 +1243,11 @@ function render() {
     return;
   }
 }
-function movePlayer(dx, dy) {
-  console.debug("movePlayer called", dx, dy);
-  const newX = player.x + dx;
-  const newY = player.y + dy;
-  // Ensure player stays within bounds
-  if (
-    newX >= 0 &&
-    newX < mapGrid[0].length &&
-    newY >= 0 &&
-    newY < mapGrid.length
-  ) {
-    player.x = newX;
-    player.y = newY;
-  }
-  render();
-}
-window.movePlayer = movePlayer;
-console.debug("movePlayer assigned to window");
+
 
 // Initialize gang HP for combat
 state.gangHp = 18;
+
 
 function showFatalError(msg) {
   let story = document.getElementById("story");
@@ -947,10 +1266,168 @@ function showFatalError(msg) {
     document.body.appendChild(errDiv);
   }
 }
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    render();
-  } catch (e) {
-    showFatalError("Game failed to load: " + e.message);
+
+
+function showCharacterCreator(onComplete) {
+  // Remove any existing overlay
+  let old = document.getElementById('char-creator-overlay');
+  if (old) old.remove();
+
+  const stats = ["strength", "agility", "technical", "charisma", "perception"];
+  let points = 10;
+  let values = { strength: 1, agility: 1, technical: 1, charisma: 1, perception: 1 };
+  points -= 5;
+  let appearance = {
+    hair: 0,
+    color: 0,
+    face: 0
+  };
+  const hairStyles = ["Short", "Mohawk", "Long", "Shaved", "Cyber Dreads"];
+  const colors = ["#0ff", "#f0f", "#ff0", "#0f0", "#f00", "#00f"];
+  const faces = ["Serious", "Smirk", "Scarred", "Masked", "Augmented"];
+
+  let overlay = document.createElement('div');
+  overlay.id = 'char-creator-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.left = 0;
+  overlay.style.top = 0;
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.background = 'rgba(10,10,30,0.98)';
+  overlay.style.zIndex = 9999;
+  overlay.style.display = 'flex';
+  overlay.style.flexDirection = 'column';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.fontFamily = 'Orbitron, monospace';
+  overlay.innerHTML = `
+    <div style="background:#111;border:2px solid #0ff;border-radius:16px;padding:32px;min-width:340px;box-shadow:0 0 32px #0ff8;">
+      <h2 style="color:#0ff;text-align:center;">Character Creation</h2>
+      <div id="char-creator-avatar" style="display:flex;justify-content:center;align-items:center;margin-bottom:16px;"></div>
+      <div id="char-creator-appearance" style="margin-bottom:24px;text-align:center;"></div>
+      <div id="char-creator-stats" style="margin-bottom:24px;"></div>
+      <div style="text-align:center;margin-bottom:12px;color:#fff;">Points left: <span id="char-creator-points">${points}</span></div>
+      <button id="char-creator-confirm" style="background:#0ff;color:#111;font-weight:bold;padding:8px 24px;border-radius:8px;border:none;font-size:1.1em;box-shadow:0 0 8px #0ff8;cursor:pointer;">Start Game</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  function updateAvatar() {
+    const avatar = document.getElementById('char-creator-avatar');
+    if (!avatar) return;
+    // Use DiceBear Avatars (pixel-art style) for a stylized character
+    // We'll use a seed based on the appearance choices for consistency
+    const seed = `${hairStyles[appearance.hair]}-${colors[appearance.color]}-${faces[appearance.face]}`;
+    if (window.avatars && window.avatars.createAvatar && window.style) {
+      const svg = window.avatars.createAvatar(window.style, { seed });
+      avatar.innerHTML = svg;
+    } else {
+      // Fallback: show loading or a placeholder
+      avatar.innerHTML = '<div style="width:80px;height:80px;background:#222;color:#0ff;display:flex;align-items:center;justify-content:center;">Loading...</div>';
+    }
   }
+
+  function updateAppearanceUI() {
+    const el = document.getElementById('char-creator-appearance');
+    if (!el) return;
+    el.innerHTML = `
+      <div style="margin-bottom:8px;">
+        <b style="color:#0ff;">Hair:</b> <span>${hairStyles[appearance.hair]}</span>
+        <button style="margin-left:8px;" id="hair-prev">&#8592;</button>
+        <button id="hair-next">&#8594;</button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <b style="color:#0ff;">Color:</b> <span style="color:${colors[appearance.color]}">●</span>
+        <button style="margin-left:8px;" id="color-prev">&#8592;</button>
+        <button id="color-next">&#8594;</button>
+      </div>
+      <div>
+        <b style="color:#0ff;">Face:</b> <span>${faces[appearance.face]}</span>
+        <button style="margin-left:8px;" id="face-prev">&#8592;</button>
+        <button id="face-next">&#8594;</button>
+      </div>
+    `;
+    // Add listeners
+    document.getElementById('hair-prev').onclick = () => { appearance.hair = (appearance.hair + hairStyles.length - 1) % hairStyles.length; updateAppearanceUI(); updateAvatar(); };
+    document.getElementById('hair-next').onclick = () => { appearance.hair = (appearance.hair + 1) % hairStyles.length; updateAppearanceUI(); updateAvatar(); };
+    document.getElementById('color-prev').onclick = () => { appearance.color = (appearance.color + colors.length - 1) % colors.length; updateAppearanceUI(); updateAvatar(); };
+    document.getElementById('color-next').onclick = () => { appearance.color = (appearance.color + 1) % colors.length; updateAppearanceUI(); updateAvatar(); };
+    document.getElementById('face-prev').onclick = () => { appearance.face = (appearance.face + faces.length - 1) % faces.length; updateAppearanceUI(); updateAvatar(); };
+    document.getElementById('face-next').onclick = () => { appearance.face = (appearance.face + 1) % faces.length; updateAppearanceUI(); updateAvatar(); };
+  }
+
+  function updateStatsUI() {
+    const el = document.getElementById('char-creator-stats');
+    if (!el) return;
+    el.innerHTML = stats.map(stat => `
+      <div style="margin-bottom:4px;">
+        <b style="color:#0ff;">${stat.charAt(0).toUpperCase()+stat.slice(1)}:</b> <span id="stat-val-${stat}">${values[stat]}</span>
+        <button id="stat-inc-${stat}" ${(points<=0||values[stat]>=10)?'disabled':''}>+</button>
+        <button id="stat-dec-${stat}" ${(values[stat]<=1)?'disabled':''}>-</button>
+      </div>
+    `).join('');
+    stats.forEach(stat => {
+      document.getElementById(`stat-inc-${stat}`).onclick = () => {
+        if (points > 0 && values[stat] < 10) { values[stat]++; points--; updateStatsUI(); updatePoints(); }
+      };
+      document.getElementById(`stat-dec-${stat}`).onclick = () => {
+        if (values[stat] > 1) { values[stat]--; points++; updateStatsUI(); updatePoints(); }
+      };
+    });
+  }
+  function updatePoints() {
+    let el = document.getElementById('char-creator-points');
+    if (el) el.textContent = points;
+  }
+
+  updateAvatar();
+  updateAppearanceUI();
+  updateStatsUI();
+  updatePoints();
+
+  document.getElementById('char-creator-confirm').onclick = () => {
+    if (points > 0) {
+      alert('Please assign all points before starting the game.');
+      return;
+    }
+    overlay.remove();
+    // Ensure all stats are present and clamped between 1 and 10
+    player.stats = {};
+    stats.forEach(stat => {
+      player.stats[stat] = Math.max(1, Math.min(10, values[stat] || 1));
+    });
+    // Save appearance as indices and as a seed for DiceBear
+    player.appearance = {
+      hair: appearance.hair,
+      color: appearance.color,
+      face: appearance.face,
+      seed: `${hairStyles[appearance.hair]}-${colors[appearance.color]}-${faces[appearance.face]}`
+    };
+    if (typeof onComplete === 'function') onComplete();
+    // Render avatar in main game UI
+    setTimeout(renderCharacterVisual, 0);
+  };
+
+  // Show avatar in main game UI if returning to creator
+  setTimeout(renderCharacterVisual, 0);
+
+// Make DiceBear helpers available globally
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  showCharacterCreator(() => {
+    try {
+      render();
+      // Show avatar in main game UI after creation
+      setTimeout(() => {
+        if (player.appearance && player.appearance.seed) {
+          const charDiv = document.getElementById('character-visual');
+          if (charDiv) charDiv.innerHTML = getDiceBearSVG(player.appearance.seed);
+        }
+      }, 0);
+    } catch (e) {
+      showFatalError("Game failed to load: " + e.message);
+    }
+  });
 });
