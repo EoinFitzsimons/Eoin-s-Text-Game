@@ -1,7 +1,6 @@
 // Map drawing and city layout logic
 import { cityMap, mainLocations } from '../story.js';
 import { player, state } from '../gameplay.js';
-// Example: drawCityMap, getLocationCoords, movePlayer
 
 export function drawCityMap(ctx, cityMap, state) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -24,7 +23,6 @@ export function drawCityMap(ctx, cityMap, state) {
     ctx.stroke();
   }
   ctx.restore();
-  // ...draw locations, player, tooltips, etc.
 }
 
 export function getLocationCoords(cityMap, location) {
@@ -38,5 +36,3 @@ export function movePlayer(state, nextLocation) {
   }
   return false;
 }
-
-// ...add more map helpers as needed

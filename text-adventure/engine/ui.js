@@ -1,6 +1,5 @@
 // UI helpers for dialogs, buttons, notifications, and animations
 import { render } from './engine.js';
-// Example: showModal, showNotification, animateButton
 
 export function showModal(title, message, onClose) {
   const modal = document.createElement('div');
@@ -47,4 +46,3 @@ export function animateButton(btn) {
   }, 300);
 }
 
-// ...add more UI helpers as needed

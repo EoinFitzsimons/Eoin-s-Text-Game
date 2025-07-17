@@ -16,8 +16,7 @@ export function handleKeyPress(e) {
     case 'ArrowDown':
       // Move down or select next
       break;
-    // ...handle other keys
+
   }
 }
 
-// ...add more input helpers as needed

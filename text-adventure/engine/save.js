@@ -1,7 +1,6 @@
 // Save/load system using localStorage
 import { player, state } from '../gameplay.js';
 import { render } from './engine.js';
-// Example: saveGame, loadGame, clearSave
 
 export function saveGame(state) {
   try {
@@ -26,5 +25,3 @@ export function loadGame() {
 export function clearSave() {
   localStorage.removeItem('cyberpunkGameSave');
 }
-
-// ...add more save/load helpers as needed

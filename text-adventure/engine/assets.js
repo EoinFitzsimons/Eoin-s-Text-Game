@@ -23,4 +23,3 @@ export function getAsset(src) {
   return _assets[src] || null;
 }
 
-// ...add more asset helpers as needed
