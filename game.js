@@ -454,15 +454,25 @@
     </svg>`;
   }
 
+  function resumeRun() {
+    if (!s || s.ending) return;
+    started = true;
+    hideOverlay();
+    Sound.select();
+    render();
+  }
+
   function showTitle() {
     started = false;
     stopTyping();
     const save = loadSaved();
+    const running = s && !s.ending;
     const saveLine = save ? `${esc(save.player.name)} · turn ${save.turn} · ${esc((C.DISTRICTS[(C.ROOMS[save.scene] || {}).district] || {}).name || "")}` : "no save";
     showOverlay(`
       ${logoSVG()}
       <div class="title-tag">ONE NIGHT · ONE CASE · SEVEN WAYS OUT</div>
       <div class="menu">
+        ${running ? `<button id="t-resume">Resume <span class="sub">${esc(s.player.name)} · turn ${s.turn}</span></button>` : ""}
         <button id="t-new">New run</button>
         <button id="t-continue" ${save ? "" : "disabled"}>Continue <span class="sub">${saveLine}</span></button>
         <button id="t-help">How to play</button>
@@ -470,11 +480,12 @@
       </div>
       <div class="overlay-foot">Everything on screen is drawn in code and every sound is synthesised. Press a key or click to begin.</div>
     `);
+    if (running) $("t-resume").addEventListener("click", () => { Sound.unlock(); resumeRun(); });
     $("t-new").addEventListener("click", () => { Sound.unlock(); Sound.select(); showCreator(); });
     $("t-continue").addEventListener("click", () => { Sound.unlock(); loadGame(); });
     $("t-help").addEventListener("click", () => { Sound.unlock(); Sound.select(); showHelp(() => showTitle()); });
     $("t-sound").addEventListener("click", () => { Sound.unlock(); Sound.toggleMute(); updateMuteButton(); $("t-sound").textContent = `Sound: ${Sound.muted ? "off" : "on"}`; });
-    $("t-new").focus();
+    $(running ? "t-resume" : "t-new").focus();
   }
 
   function showHelp(back) {
@@ -594,7 +605,11 @@
     if (e.target && e.target.tagName === "INPUT") return;
     const k = e.key;
     if (overlayOpen()) {
-      if (k === "Escape" && started) { hideOverlay(); e.preventDefault(); }
+      if (k === "Escape") {
+        if (started) hideOverlay();
+        else if ($("t-resume")) resumeRun();
+        e.preventDefault();
+      }
       return;
     }
     if (!started) return;
