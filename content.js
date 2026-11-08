@@ -641,11 +641,13 @@ The other two shift to block the gate. A rat watches from the dumpster with prof
   R.docks_kestrel = {
     district: "docks", name: "Cargo Hold Three — Kestrel",
     text: (s) => {
+      if (s.flags.kestrelRobbed) return "Cargo Hold Three is empty: no tea, no crate, no Kestrel. The Syndicate soldiers are gone too, which is somehow worse. Someone has chalked your name on the floor.";
       if (s.flags.lockboxLost) return "Kestrel sits on a crate with a cup of tea and a pistol beside it. \"The Watch has my case,\" she says. It is not a question. \"And you have my attention. That is not a good thing to have.\"";
       if (!G.has("lockbox")) return "Kestrel sits on a crate with a cup of tea and a pistol beside it. \"You're not my courier. My courier's dead. So either you know where my case is, or you're wasting the last few minutes of a perfectly good evening.\"";
       return "Kestrel sits on a crate with a cup of tea and a pistol beside it. She is older than you expected and much calmer. \"That's mine. You did well not to open it. Sixty credits, as agreed with the man who was supposed to bring it.\"";
     },
     choices: (s) => {
+      if (s.flags.kestrelRobbed) return [{ label: "Leave quickly", do: () => G.go("docks") }];
       if (s.flags.lockboxLost) {
         return [
           { label: "Offer to make it right", hint: `Charm ${G.bonus("charm")}/4`, do: () => {
@@ -669,7 +671,7 @@ The other two shift to block the gate. A rat watches from the dumpster with prof
             else { G.rep("syndicate", -1); G.say("\"Sixty,\" she says, \"was before you tried to be clever.\" The soldiers at the door have turned round."); }
           } },
         { label: "Take Kestrel's money by force", hint: `Muscle ${G.bonus("muscle")}/5${G.has("neon_blade") ? " · Neon Blade" : ""}`, do: () => {
-            if (G.check("muscle", 5)) { G.give("credstick"); G.rep("syndicate", -3); G.heat(1); G.note("Robbed Kestrel at the Docks. The Syndicate will want you dead."); G.go("docks", "The tea goes over. The pistol goes across the floor. The soldiers hesitate for exactly as long as it takes you to lift her credstick and leave through the back of the hold. You have made a very dangerous enemy and kept the case."); }
+            if (G.check("muscle", 5)) { G.set("kestrelRobbed"); G.give("credstick"); G.rep("syndicate", -3); G.heat(1); G.note("Robbed Kestrel at the Docks. The Syndicate will want you dead."); G.go("docks", "The tea goes over. The pistol goes across the floor. The soldiers hesitate for exactly as long as it takes you to lift her credstick and leave through the back of the hold. You have made a very dangerous enemy and kept the case."); }
             else { G.damage(5, "Kestrel's pistol"); G.rep("syndicate", -2); G.go("docks", "She is faster than her tea suggested. You are back outside with a bullet in your side and the case still, somehow, in your hand. The soldiers let you go. Kestrel wants you to think about it."); }
           } },
         { label: "Change your mind and leave", do: () => G.go("docks") }
