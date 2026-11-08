@@ -1,38 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text Adventure RPG</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Verge City: a terminal-style cyberpunk text adventure with a canvas map, synthesised sound and choices that matter.">
+  <title>Verge City — a terminal text adventure</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23040c0e'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' font-weight='bold' text-anchor='middle' fill='%2327e7ff'%3E%3E_%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
-        <h1 id="game-title">Text Adventure RPG</h1>
-        <div id="main-flex">
-            <div id="left-panel">
-                <canvas id="map-canvas" width="400" height="300"></canvas>
-                <div id="customise-panel" style="display:none;"></div>
-            </div>
-            <div id="center-panel">
-                <div id="story"><span style="color:#0ff;font-size:1.2em;">Loading game...</span></div>
-                <div id="choices"></div>
-                <div id="stats"></div>
-            </div>
-            <div id="right-panel">
-                <div id="character-panel" style="background:#181828;border-radius:16px;padding:16px 8px 8px 8px;margin-bottom:24px;box-shadow:0 0 16px #0ff8,0 0 32px #f0f4;">
-                  <div id="character-visual" style="margin-bottom:12px;display:flex;justify-content:center;align-items:center;"></div>
-                  <div id="character-stats"></div>
-                </div>
-                <h2>Inventory</h2>
-                <div id="inventory-visual"></div>
-            </div>
+  <div id="crt">
+    <header id="topbar">
+      <div id="brand">
+        <span class="prompt">&gt;</span> VERGE CITY <span class="dim">// runner terminal v2.0</span>
+      </div>
+      <div id="status">
+        <span id="status-hp" title="Health">HP <span class="bar"><span id="hp-fill"></span></span> <span id="hp-text">12/12</span></span>
+        <span id="status-credits" title="Credits">¤ <span id="credits-text">0</span></span>
+        <span id="status-heat" title="Watch heat">HEAT <span id="heat-text">0</span></span>
+        <span id="status-turn" title="Turns taken">T<span id="turn-text">0</span></span>
+      </div>
+      <div id="controls">
+        <button id="btn-save" class="small" title="Save (S)">Save</button>
+        <button id="btn-load" class="small" title="Load (L)">Load</button>
+        <button id="btn-mute" class="small" title="Toggle sound (M)">Sound: on</button>
+        <button id="btn-menu" class="small" title="Title screen (Esc)">Menu</button>
+      </div>
+    </header>
+
+    <main id="layout">
+      <aside id="left-panel">
+        <h2 class="panel-title">District map</h2>
+        <canvas id="map-canvas" width="340" height="300" aria-label="Map of Verge City"></canvas>
+        <div id="map-legend" class="dim">Click a lit district to travel there.</div>
+        <h2 class="panel-title">Runner</h2>
+        <div id="runner-card">
+          <canvas id="portrait-canvas" width="120" height="120" aria-label="Runner portrait"></canvas>
+          <div id="runner-stats"></div>
         </div>
+      </aside>
+
+      <section id="centre-panel">
+        <div id="location-line" class="dim"></div>
+        <div id="story" aria-live="polite"></div>
+        <ol id="choices"></ol>
+        <div id="hint-line" class="dim">[1-9] choose &nbsp;·&nbsp; [Space] skip text &nbsp;·&nbsp; [M] mute &nbsp;·&nbsp; [S] save &nbsp;·&nbsp; [L] load</div>
+      </section>
+
+      <aside id="right-panel">
+        <h2 class="panel-title">Inventory</h2>
+        <ul id="inventory"></ul>
+        <h2 class="panel-title">Standing</h2>
+        <ul id="factions"></ul>
+        <h2 class="panel-title">Journal</h2>
+        <ul id="journal"></ul>
+      </aside>
+    </main>
+
+    <div id="overlay" class="hidden">
+      <div id="overlay-box"></div>
     </div>
-    <!-- DiceBear Avatars CDN for SVG avatar generation -->
-    <script src="https://cdn.jsdelivr.net/npm/@dicebear/avatars@4.10.1/dist/avatars.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@dicebear/pixel-art@4.10.1/dist/style.min.js"></script>
-    <!-- Standard script loading for game.js -->
-    <script src="game.js"></script>
+    <div id="scanlines" aria-hidden="true"></div>
+    <div id="vignette" aria-hidden="true"></div>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="map.js"></script>
+  <script src="content.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
