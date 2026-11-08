@@ -117,6 +117,14 @@
       if (actionDead) return;
       travel(district, text);
     },
+    /* step back to the district you came from, through its gate if it has one */
+    retreat(text) {
+      if (actionDead) return;
+      const d = (s.lastDistrict && C.DISTRICTS[s.lastDistrict]) ? s.lastDistrict : "plaza";
+      const def = C.DISTRICTS[d];
+      const gated = def.gate ? def.gate(s) : null;
+      G.go(gated || d, text);
+    },
     learnDistrict(id) { if (C.DISTRICTS[id] && !s.known.includes(id)) s.known.push(id); },
     learnAll() { Object.keys(C.DISTRICTS).forEach((id) => G.learnDistrict(id)); }
   };

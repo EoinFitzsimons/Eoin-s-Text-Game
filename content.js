@@ -1,7 +1,7 @@
 /* Verge City — rooms, items, districts and endings.
    Everything in this file is data plus small handlers; the engine in game.js exposes the
    helper object `G` (has, give, take, check, damage, heal, credits, flag, set, rep, heat,
-   note, say, go, rnd, end) which these handlers call. */
+   note, say, go, retreat, travelTo, rnd, end) which these handlers call. */
 (function () {
   const STATS = {
     muscle: { label: "Muscle", blurb: "Fighting, forcing doors, carrying the day." },
@@ -357,11 +357,11 @@ The other two shift to block the gate. A rat watches from the dumpster with prof
       { label: "Pay the cover (10 credits)", when: G.canPay(10), do: () => { G.credits(-10); G.set("clubAccess"); G.go("club", "Ten credits and a stamp on your wrist that glows faintly. You are in."); } },
       { label: "Say Mara is expecting you", hint: s.flags.courierSearched ? "you have her name" : `Charm ${G.bonus("charm")}/4`, do: () => {
           if (s.flags.courierSearched || G.check("charm", 4)) { G.set("clubAccess"); G.go("club", "\"Mara.\" He says it into his collar, waits, then steps aside without another word."); }
-          else { G.go("plaza", "\"Mara's expecting a lot of people tonight.\" He does not move. You take the hint back to the Plaza."); }
+          else { G.retreat("\"Mara's expecting a lot of people tonight.\" He does not move. You take the hint and back off."); }
         } },
       { label: "Push past him", hint: `Muscle ${G.bonus("muscle")}/4`, do: () => {
           if (G.check("muscle", 4)) { G.set("clubAccess"); G.heat(1); G.rep("syndicate", -1); G.go("club", "You put a shoulder into him and he goes over like a sofa would. Inside, nobody has noticed. Outside, the door camera has."); }
-          else { G.damage(3, "the bouncer"); G.go("plaza", "He does not even step back. One hand, flat, and you are sitting in the gutter outside with the bass thudding through the pavement."); }
+          else { G.damage(3, "the bouncer"); G.retreat("He does not even step back. One hand, flat, and you are sitting in the gutter outside with the bass thudding through the pavement."); }
         } },
       { label: "Back to the plaza", do: () => G.go("plaza") }
     ]
@@ -445,11 +445,11 @@ The other two shift to block the gate. A rat watches from the dumpster with prof
       { label: "Use the Encrypted Keycard", when: G.has("keycard"), do: () => { G.set("roofAccess"); G.go("rooftops", "The lift accepts the card and rises. Verge City drops away in neon strips."); } },
       { label: "Hack the lift panel", hint: `Tech ${G.bonus("tech")}/4${G.has("data_spike") ? " · Data Spike" : ""}`, do: () => {
           if (G.check("tech", 4)) { G.set("roofAccess"); G.go("rooftops", "The lift panel is a cousin of the alley camera. You talk to it in the family dialect and it takes you up."); }
-          else { G.heat(1); G.go("club", "The panel flashes DENIED and a Watch tone. You leave before anyone comes to ask why."); }
+          else { G.heat(1); G.retreat("The panel flashes DENIED and a Watch tone. You leave before anyone comes to ask why."); }
         } },
       { label: "Climb the ladder", hint: `Muscle ${G.bonus("muscle")}/3`, do: () => {
           if (G.check("muscle", 3)) { G.set("roofAccess"); G.go("rooftops", "Forty metres of wet rungs. Your arms are on fire by the top, but the top is where you are."); }
-          else { G.damage(3, "a fall from the ladder"); G.go("club", "A rung gives. You fall a storey onto a fire escape and lie there listening to the bass through the wall until you can stand."); }
+          else { G.damage(3, "a fall from the ladder"); G.retreat("A rung gives. You fall a storey onto a fire escape and lie there listening to the bass through the wall until you can stand."); }
         } }
     ]
   };
@@ -562,11 +562,11 @@ The other two shift to block the gate. A rat watches from the dumpster with prof
       { label: "Present the Helix Security Badge", when: G.has("badge"), do: () => { G.set("helixAccess"); G.go("luxury_store", "The reader turns green and the guards' attention slides off you like you were never there."); } },
       { label: "Walk in like you belong", hint: `Charm ${G.bonus("charm")}/4`, do: () => {
           if (G.check("charm", 4)) { G.set("helixAccess"); G.go("luxury_store", "You complain about the rain to the nearer guard and he holds the door for you. Confidence is the oldest exploit."); }
-          else { G.heat(1); G.go("club", "\"Appointment?\" You do not have one. The guard's hand does not quite reach his sidearm. You leave."); }
+          else { G.heat(1); G.retreat("\"Appointment?\" You do not have one. The guard's hand does not quite reach his sidearm. You leave."); }
         } },
       { label: "Slip in behind a customer", hint: `Reflex ${G.bonus("reflex")}/4${G.has("holo_cloak") ? " · Holo Cloak" : ""}`, do: () => {
           if (G.check("reflex", 4)) { G.set("helixAccess"); G.go("luxury_store", "A couple in matching chrome step up to the door. You are their shadow for exactly as long as it takes."); }
-          else { G.damage(2, "a guard's rifle butt"); G.heat(1); G.go("club", "The guard sees the shimmer. The rifle butt is efficient and impersonal. You are back on the street with a new bruise."); }
+          else { G.damage(2, "a guard's rifle butt"); G.heat(1); G.retreat("The guard sees the shimmer. The rifle butt is efficient and impersonal. You are back on the street with a new bruise."); }
         } }
     ]
   };
